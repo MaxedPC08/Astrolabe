@@ -1,0 +1,5 @@
+Red: 206
+Green: 189
+Blue: 0
+Blur: 5
+Difference: 10
