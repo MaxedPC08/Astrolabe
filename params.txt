@@ -1,5 +1,7 @@
-Red: 206
-Green: 189
-Blue: 0
-Blur: 5
-Difference: 10
+Red: 255
+Green: 102
+Blue: 61
+Blur: 13
+Difference: 13
+Brightness: 165
+Contrast: 20
