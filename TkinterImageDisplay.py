@@ -20,30 +20,62 @@ class App(tk.Tk):
         self.current_pil_image = None
         self.new_vals = None
         self.title("Image Viewer")
-        self.geometry("1000x1200")
+        self.geometry("1200x600")
 
-        self.image_label = tk.Label(self, width=640, height=480)
-        self.fps_label = tk.Label(self, width=50, height=20, text="FPS: 0")
+        # Create main frames for layout
+        self.frame_left = tk.Frame(self)
+        self.frame_right = tk.Frame(self)
+        self.frame_separator = tk.Frame(self, width=2, bg='black')  # Aesthetic vertical bar
+
+        # Pack the main frames to the left and right, separator in between
+        # Adjust the packing of the main frames
+        self.frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.frame_separator.pack(side=tk.LEFT, fill=tk.Y)  # Pack the separator frame
+        self.frame_right.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
+
+        # Image and FPS label in the left frame
+        self.image_label = tk.Label(self.frame_left)
+        self.image_label.pack(fill=tk.BOTH, expand=True)
+
+        # Adjustments for the FPS label to overlay on the image
+        self.fps_label = tk.Label(self.frame_left, text="FPS: 0", bg='black', fg='white', font=("Helvetica", 12))
+        # This will place the FPS label at the bottom-right corner of the left frame
+        self.fps_label.place(relx=1.0, rely=1.0, x=-2, y=-2, anchor="se")
+
+        # Sliders and toggles in the right frame with increased width (length parameter)
+        self.red_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Red',
+                                   command=self.slider_update, length=300)
+        self.green_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Green',
+                                     command=self.slider_update, length=300)
+        self.blue_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Blue',
+                                    command=self.slider_update, length=300)
+        self.difference_slider = tk.Scale(self.frame_right, from_=0, to=40, orient='horizontal', label='Difference',
+                                          command=self.slider_update, length=300)
+        self.blur_slider = tk.Scale(self.frame_right, from_=0, to=40, orient='horizontal', label='Blur',
+                                    command=self.slider_update, length=300)
+        self.brightness_slider = tk.Scale(self.frame_right, from_=0, to=250, orient='horizontal', label='Brightness',
+                                          command=self.slider_update, length=300)
+        self.contrast_slider = tk.Scale(self.frame_right, from_=0, to=20, orient='horizontal', label='Contrast',
+                                        command=self.slider_update, length=300)
+        self.save_image_toggle = ttk.Checkbutton(self.frame_right, text="Save Image", onvalue=True, offvalue=False,
+                                                 command=self.save_image_toggle_func)
+        self.process_image_toggle = ttk.Checkbutton(self.frame_right, text="Process Image", onvalue=True,
+                                                    offvalue=False, command=self.process_image_toggle_func)
+
+        # Pack sliders and toggles in the right frame
+        self.red_slider.pack()
+        self.green_slider.pack()
+        self.blue_slider.pack()
+        self.difference_slider.pack()
+        self.blur_slider.pack()
+        self.brightness_slider.pack()
+        self.contrast_slider.pack()
+        self.save_image_toggle.pack()
+        self.process_image_toggle.pack()
 
         self.image_label.bind("<Button-1>", self.on_image_click)
 
-        # Define sliders
-        self.red_slider = tk.Scale(self, from_=0, to=255, orient='horizontal', label='Red', command=self.slider_update)
-        self.green_slider = tk.Scale(self, from_=0, to=255, orient='horizontal', label='Green',
-                                     command=self.slider_update)
-        self.blue_slider = tk.Scale(self, from_=0, to=255, orient='horizontal', label='Blue', command=self.slider_update)
-        self.difference_slider = tk.Scale(self, from_=0, to=40, orient='horizontal', label='Difference',
-                                          command=self.slider_update)
-        self.blur_slider = tk.Scale(self, from_=0, to=40, orient='horizontal', label='Blur', command=self.slider_update)
-
-        self.brightness_slider = tk.Scale(self, from_=0, to=250, orient='horizontal', label='Brightness', command=self.slider_update)
-        self.contrast_slider = tk.Scale(self, from_=0, to=20, orient='horizontal', label='Contrast', command=self.slider_update)
-
-        self.save_image_toggle = ttk.Checkbutton(self, text="Save Image", onvalue=True, offvalue=False, command=self.save_image_toggle_func)
-        self.process_image_toggle = ttk.Checkbutton(self, text="Process Image", onvalue=True, offvalue=False, command=self.process_image_toggle_func)
-
-
-        # Get initial slider values from the params.txt file
+        # Load initial slider values from the params.txt file
         try:
             with open('params.txt', 'r') as f:
                 lines = f.readlines()
@@ -72,30 +104,106 @@ class App(tk.Tk):
         self.brightness_slider.set(brightness_val)
         self.contrast_slider.set(contrast_val)
 
-        # Place sliders
-        self.image_label.pack()
-        self.fps_label.pack()
-        self.save_image_toggle.pack()
-        self.process_image_toggle.pack()
-        self.red_slider.pack()
-        self.green_slider.pack()
-        self.blue_slider.pack()
-        self.difference_slider.pack()
-        self.blur_slider.pack()
-        self.brightness_slider.pack()
-        self.contrast_slider.pack()
+        # First, define the colors for the dark mode
+        dark_background_color = "#333333"
+        light_text_color = "#CCCCCC"
+        dark_frame_color = "#444444"
+        slider_trough_color = "#555555"
+        fps_label_color = "#111111"
+
+        # Then, apply these colors to the main window and widgets
+        self.configure(bg=dark_background_color)  # Main window background
+
+        # Frames
+        self.frame_left.configure(bg=dark_frame_color)
+        self.frame_right.configure(bg=dark_frame_color)
+        self.frame_separator.configure(bg=dark_background_color)  # Separator might remain the same or adjust as needed
+
+        # Labels
+        self.image_label.configure(
+            bg=dark_frame_color)  # Assuming you want the image background to be dark when no image is displayed
+        self.fps_label.configure(bg=fps_label_color, fg=light_text_color)
+
+        # Sliders - You'll need to create a custom style for sliders to change the trough color
+        style = ttk.Style()
+        style.theme_use('clam')  # 'clam' theme allows for more customization
+        style.configure("Horizontal.TScale", background=dark_frame_color, troughcolor=slider_trough_color,
+                        sliderrelief="flat", sliderlength=30, sliderwidth=10, borderwidth=0)
+
+        # Apply the custom style to each slider
+        self.red_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                  highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.green_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                    highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.blue_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                      highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.difference_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                        highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.blur_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                    highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.brightness_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                        highlightbackground=dark_frame_color, activebackground=light_text_color)
+        self.contrast_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
+                                        highlightbackground=dark_frame_color, activebackground=light_text_color)
+
+        # Toggle buttons - Custom style for Checkbuttons
+        style.configure("Custom.TCheckbutton", background=dark_frame_color, foreground=light_text_color,
+                        selectcolor=dark_frame_color, borderwidth=0)
+        self.save_image_toggle.configure(style="Custom.TCheckbutton")
+        self.process_image_toggle.configure(style="Custom.TCheckbutton")
+
+        # Step 2: Create functions to change the style on hover
+        def on_enter(event):
+            event.widget.configure(
+                style="Hover.TCheckbutton")  # Assuming Hover.TCheckbutton is a style you defined for hover
+
+        def on_leave(event):
+            event.widget.configure(style="Custom.TCheckbutton")  # Revert to the original style
+
+        # Define a hover style
+        style.map("Hover.TCheckbutton",
+                  background=[("active", "#555555")],  # Custom color when hovered
+                  foreground=[("active", "#FFFFFF")])
+
+        # Step 3: Bind the hover functions to the toggle buttons
+        self.save_image_toggle.bind("<Enter>", on_enter)
+        self.save_image_toggle.bind("<Leave>", on_leave)
+
+        self.process_image_toggle.bind("<Enter>", on_enter)
+        self.process_image_toggle.bind("<Leave>", on_leave)
 
     def display_image(self, pil_image):
-        self.current_pil_image = pil_image  # Store the PIL Image object
-        image = pil_image.resize((800, 600))
-        photo_image = ImageTk.PhotoImage(image)
+        # Get the dimensions of the frame
+        frame_width = self.frame_left.winfo_width()-2
+        frame_height = self.frame_left.winfo_height()
+
+        # Calculate the aspect ratio of the image and the frame
+        image_aspect = pil_image.width / pil_image.height
+        frame_aspect = frame_width / frame_height
+
+        # Determine how to scale based on the relative aspect ratios
+        if image_aspect > frame_aspect:
+            # Image is wider than the frame, scale based on frame's width
+            new_width = frame_width
+            new_height = int(frame_width / image_aspect)
+        else:
+            # Image is taller than the frame, scale based on frame's height
+            new_height = frame_height
+            new_width = int(frame_height * image_aspect)
+
+        # Resize the image to fill the frame while maintaining aspect ratio
+        resized_image = pil_image.resize((new_width, new_height))
+        photo_image = ImageTk.PhotoImage(resized_image)
+
+        # Display the image
         self.image_label.configure(image=photo_image)
-        self.image_label.image = photo_image  # Keep a reference to avoid garbage collection
+        self.image_label.image = photo_image  # Keep a reference to avoid garbage collection  # Keep a reference to avoid garbage collection
 
     def change_image(self, new_image_array, fps=0.0):
         new_pil_image = Image.fromarray(new_image_array)
         self.display_image(new_pil_image)
         self.fps_label.configure(text=f"FPS: {fps:.4f}")
+        self.current_pil_image = new_pil_image
         if SAVE_IMAGE:
             new_pil_image.save("image.jpg")
 

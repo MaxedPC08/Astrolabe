@@ -31,7 +31,7 @@ class Locater:
         self.green_line = np.array([[0, 255, 0] for i in range(11)])
         self.red_line = np.array([[0, 0, 255] for i in range(11)])
         try:
-            with open('../FYRE-FRSee/params.txt', 'r') as f:
+            with open('params.txt', 'r') as f:
                 lines = f.readlines()
                 self.red_val = int(lines[0].split(": ")[1])
                 self.green_val = int(lines[1].split(": ")[1])
@@ -47,11 +47,14 @@ class Locater:
             self.difference_val = 50
 
         # Preprocess the target color for maximum efficiency
-        self.target_color= np.array([self.red_val, self.green_val, self.blue_val])
+        self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
 
     def locate(self, image, blur=-1, dif=-1, red_val=-1, green_val=-1, blue_val=-1):
         """
         This function locates the object in the image. It uses the target color and the parameters to find the object.
+        :param blur:
+        :param dif:
+        :param red_val:
         :param image: Numpy array of the image
         :return: (ndarray, tuple, int) where the first is the processed image with crosshairs etc.,
         center is the center of the object (x, y), and width is the width of the object
@@ -62,11 +65,12 @@ class Locater:
         if dif == -1:
             dif = self.difference_val
 
-        if red_val != -1 or green_val != -1 or blue_val != -1:
+        if red_val != -1 and green_val != -1 and blue_val != -1:
             self.red_val = red_val
             self.green_val = green_val
             self.blue_val = blue_val
-            self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
+
+        self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
 
         # Convert the image and target color to the Lab color space
         new_color = [-0.666, -0.666, -0.666]
@@ -75,13 +79,15 @@ class Locater:
         # Normalize the image and target color
         array = np.average(np.abs(image - np.array(self.target_color)), 2)
         if np.all(array > dif*2):
-            print("No matching color found")
+            # print("No matching color found")
             return image, (-1, -1), -1
         x, y = np.unravel_index(np.argmin(array), array.shape)
 
         if blur > 0:
-            kernel = np.ones((blur, blur), np.float32) / (blur ** 2)
-            image = cv2.filter2D(image, -1, kernel)
+            """image = cv2.blur(image, (blur, blur))
+            image = cv2.medianBlur(image, blur//2*2+1)"""
+            image = cv2.bilateralFilter(image, blur, blur*2, blur//2)
+
 
         cols, rows = image.shape[:2]
 
@@ -147,15 +153,16 @@ class Locater:
         new_color = [-1, -1, -1]
 
         # Normalize the image and target color
-        array = np.average(np.abs(image - np.array(self.target_color)), 2)
-        if np.all(array > dif*2):
-            print("No matching color found")
+        array = np.sum(np.square(image - np.array(self.target_color)), 2)
+        if np.all(array > dif**2*3):
+            #print("No matching color found")
             return image, (-1, -1), -1
         x, y = np.unravel_index(np.argmin(array), array.shape)
 
         if blur > 0:
             kernel = np.ones((blur, blur), np.float32) / (blur ** 2)
             image = cv2.filter2D(image, -1, kernel)
+            image = cv2.medianBlur(image, blur*2+1)
 
         cols, rows = image.shape[:2]
 
@@ -199,5 +206,4 @@ def loc_from_center(center, width):
     angle_radians_vert = ((MAX_VERTICAL_ANGLE - center[0] * RES_CORRESP_VERTICAL) +
                           TILT_ANGLE_RADIANS - CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS * 0.5)
     loc = (np.tan(angle_radians_vert) * CAMERA_HEIGHT) / np.cos(angle_radians_horiz)
-    print(f"Dist in inches: {loc}")
-    return loc, angle_radians_horiz
+    # print(f"Dist in inches: {loc}")
