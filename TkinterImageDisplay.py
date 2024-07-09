@@ -1,13 +1,14 @@
-from PyQt6.QtWidgets import QLabel
-from PyQt6.QtGui import QPixmap, QImage
 import asyncio
 import websockets
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from PIL import Image, ImageTk
 import numpy as np
+import os
+import json
+import sys
 
 
 SAVE_IMAGE = False
@@ -18,20 +19,32 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.current_pil_image = None
-        self.new_vals = None
+        self.command = None
+        self.active_color = 0
         self.title("Image Viewer")
         self.geometry("1200x600")
 
         # Create main frames for layout
         self.frame_left = tk.Frame(self)
-        self.frame_right = tk.Frame(self)
+        self.frame_right = tk.Frame(self, width=300)
         self.frame_separator = tk.Frame(self, width=2, bg='black')  # Aesthetic vertical bar
 
-        # Pack the main frames to the left and right, separator in between
-        # Adjust the packing of the main frames
-        self.frame_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.frame_separator.pack(side=tk.LEFT, fill=tk.Y)  # Pack the separator frame
-        self.frame_right.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
+        # Configure the grid layout
+        self.grid_columnconfigure(0, weight=1)  # Left frame has less weight, shrinks first
+        self.grid_columnconfigure(1, weight=0)  # Separator, fixed width, does not resize
+        self.grid_columnconfigure(2, weight=2)  # Right frame has more weight, shrinks last and expands first
+
+        # Place the frames using grid
+        self.frame_left.grid(row=0, column=0, sticky="nsew")
+        self.frame_separator.grid(row=0, column=1, sticky="ns")
+        self.frame_right.grid(row=0, column=2, sticky="nsew")
+
+        # Make the main window's row 0 expandable
+        self.grid_rowconfigure(0, weight=1)
+
+        # Further configuration for the right frame to ensure it behaves as desired
+        self.frame_right.grid_propagate(False)  # Prevents the frame from shrinking beyond its widgets' sizes
+
 
         # Image and FPS label in the left frame
         self.image_label = tk.Label(self.frame_left)
@@ -41,6 +54,39 @@ class App(tk.Tk):
         self.fps_label = tk.Label(self.frame_left, text="FPS: 0", bg='black', fg='white', font=("Helvetica", 12))
         # This will place the FPS label at the bottom-right corner of the left frame
         self.fps_label.place(relx=1.0, rely=1.0, x=-2, y=-2, anchor="se")
+
+        # Create a container frame for the buttons inside the right frame
+        buttons_frame = tk.Frame(self.frame_right)
+        buttons_frame.pack(side=tk.TOP, fill=tk.X)  # Adjust padding as needed
+        right_frame_sep = tk.Frame(self.frame_right, width=2, bg='black')
+        right_frame_sep.pack()
+
+        # Initialize and pack the Load Parameters button inside the buttons frame
+        self.load_params_button = ttk.Button(buttons_frame, text="Load Parameters", command=self.load_parameters)
+        self.load_params_button.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Adjust padding as needed
+
+        # Initialize and pack the Save Parameters button next to the Load Parameters button
+        self.save_params_button = ttk.Button(buttons_frame, text="Save Parameters", command=self.save_parameters)
+        self.save_params_button.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+
+        color_button_frame = tk.Frame(self.frame_right)
+        color_button_frame.pack(side=tk.TOP, fill=tk.X)
+
+        self.color_var = tk.StringVar()
+        self.color_combobox = ttk.Combobox(color_button_frame, textvariable=self.color_var)
+        self.color_combobox['values'] = ['Color 1']  # Initial dummy value
+        self.color_combobox.current(0)
+        self.color_combobox.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.X, expand=True)
+
+        # Buttons for adding and deleting colors
+        self.add_color_button = ttk.Button(color_button_frame, text="Add Color", command=self.add_color)
+        self.add_color_button.pack(side=tk.RIGHT, pady=5, padx=5, fill=tk.X, expand=True)
+
+        self.delete_color_button = ttk.Button(color_button_frame, text="Delete Color", command=self.delete_color)
+        self.delete_color_button.pack(side=tk.RIGHT, pady=5, padx=5, fill=tk.X, expand=True)
+
+        # Update combobox when selection changes
+        self.color_combobox.bind("<<ComboboxSelected>>", self.on_color_select)
 
         # Sliders and toggles in the right frame with increased width (length parameter)
         self.red_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Red',
@@ -77,17 +123,17 @@ class App(tk.Tk):
 
         # Load initial slider values from the params.txt file
         try:
-            with open('params.txt', 'r') as f:
-                lines = f.readlines()
-                red_val = int(lines[0].split(": ")[1])
-                green_val = int(lines[1].split(": ")[1])
-                blue_val = int(lines[2].split(": ")[1])
-                blur_val = int(lines[3].split(": ")[1])
-                difference_val = int(lines[4].split(": ")[1])
-                brightness_val = int(lines[5].split(": ")[1])
-                contrast_val = int(lines[6].split(": ")[1])
-        except FileNotFoundError:
-            print("params.txt not found. Using default values.")
+            with open('params.json', 'r') as f:
+                self.color_list = json.load(f)
+                red_val = self.color_list[0]["red"]
+                green_val = self.color_list[0]["green"]
+                blue_val = self.color_list[0]["blue"]
+                blur_val = self.color_list[0]["blur"]
+                difference_val = self.color_list[0]["difference"]
+                brightness_val = self.color_list[0]["brightness"]
+                contrast_val = self.color_list[0]["contrast"]
+        except:
+            print("params.json not found. Using default values.")
             red_val = 0
             green_val = 0
             blue_val = 0
@@ -95,6 +141,9 @@ class App(tk.Tk):
             difference_val = 50
             brightness_val = 40
             contrast_val = 50
+            self.color_list = [{"red": red_val, "green": green_val, "blue": blue_val, "difference": difference_val, "blur": blur_val, "brightness": brightness_val, "contrast": contrast_val}]
+            with open('params.json', 'w') as f:
+                json.dump(self.color_list, f, indent=4)
 
         self.red_slider.set(red_val)
         self.green_slider.set(green_val)
@@ -117,6 +166,8 @@ class App(tk.Tk):
         # Frames
         self.frame_left.configure(bg=dark_frame_color)
         self.frame_right.configure(bg=dark_frame_color)
+        buttons_frame.configure(bg=dark_frame_color)
+        color_button_frame.configure(bg=dark_frame_color)
         self.frame_separator.configure(bg=dark_background_color)  # Separator might remain the same or adjust as needed
 
         # Labels
@@ -152,6 +203,31 @@ class App(tk.Tk):
         self.save_image_toggle.configure(style="Custom.TCheckbutton")
         self.process_image_toggle.configure(style="Custom.TCheckbutton")
 
+        style = ttk.Style()
+
+        style.configure("Dark.TButton", foreground=light_text_color, background=dark_frame_color, borderwidth=1,
+                        focusthickness=0, focuscolor='none')
+        style.map("Dark.TButton",
+                  foreground=[("pressed", dark_frame_color), ("active", light_text_color)],
+                  background=[("pressed", "!disabled", light_text_color), ("active", dark_frame_color)],
+                  relief=[("pressed", "sunken"), ("!pressed", "raised")])
+
+        style.configure("Dark.TCombobox", fieldbackground=dark_frame_color, background=dark_background_color,
+                        foreground=light_text_color, arrowcolor=light_text_color)
+        style.map("Dark.TCombobox",
+                  fieldbackground=[("active", dark_frame_color)],
+                  background=[("active", dark_background_color)],
+                  foreground=[("active", light_text_color)],
+                  selectbackground=[("active", dark_frame_color)],
+                  selectforeground=[("active", light_text_color)])
+
+        # Apply the custom styles to the buttons and combobox
+        self.load_params_button.configure(style="Dark.TButton")
+        self.save_params_button.configure(style="Dark.TButton")
+        self.add_color_button.configure(style="Dark.TButton")
+        self.delete_color_button.configure(style="Dark.TButton")
+        self.color_combobox.configure(style="Dark.TCombobox")
+
         # Step 2: Create functions to change the style on hover
         def on_enter(event):
             event.widget.configure(
@@ -171,6 +247,8 @@ class App(tk.Tk):
 
         self.process_image_toggle.bind("<Enter>", on_enter)
         self.process_image_toggle.bind("<Leave>", on_leave)
+
+        self.load_all_colors_from_json()
 
     def display_image(self, pil_image):
         # Get the dimensions of the frame
@@ -207,7 +285,7 @@ class App(tk.Tk):
         if SAVE_IMAGE:
             new_pil_image.save("image.jpg")
 
-    def slider_update(self, value):
+    def slider_update(self, value=None):
         # Assemble the slider values into a string
         red_value = self.red_slider.get()
         green_value = self.green_slider.get()
@@ -217,32 +295,34 @@ class App(tk.Tk):
         brightness_value = self.brightness_slider.get()
         contrast_value = self.contrast_slider.get()
 
-        values = f"{red_value},{green_value},{blue_value},{difference_value},{blur_value},{brightness_value},{contrast_value}"
-        print(f"Sending values: {values}")
 
-        #Save files to the local params.txt file
-        with open('params.txt', 'w') as f:
-            f.write(f"Red: {red_value}\n")
-            f.write(f"Green: {green_value}\n")
-            f.write(f"Blue: {blue_value}\n")
-            f.write(f"Blur: {blur_value}\n")
-            f.write(f"Difference: {difference_value}\n")
-            f.write(f"Brightness: {brightness_value}\n")
-            f.write(f"Contrast: {contrast_value}\n")
+        val_dict = {
+            "red": red_value,
+            "green": green_value,
+            "blue": blue_value,
+            "difference": difference_value,
+            "blur": blur_value,
+            "brightness": brightness_value,
+            "contrast": contrast_value
+        }
+        self.color_list[min(self.active_color, len(self.color_list))] = val_dict
+
+        with open('params.json', 'w') as f:
+            json.dump(self.color_list, f, indent=4)
+
+        temp = self.color_list.copy()
+        temp.append(self.active_color)
 
 
-        self.new_vals = values
+        self.command = f"sp -values={json.dumps(temp)}"
 
     def save_image_toggle_func(self):
         global SAVE_IMAGE
         SAVE_IMAGE = not SAVE_IMAGE
-        print(f"Save image toggle: {SAVE_IMAGE}")
 
     def process_image_toggle_func(self):
         global PROCESS_IMAGE
         PROCESS_IMAGE = not PROCESS_IMAGE
-        print(f"Process image toggle: {PROCESS_IMAGE}")
-
 
     def on_image_click(self, event):
         if self.current_pil_image is None:
@@ -264,48 +344,147 @@ class App(tk.Tk):
         self.green_slider.set(pixel[1])
         self.blue_slider.set(pixel[2])
 
-class ImageLabel(QLabel):
-    def __init__(self):
-        super().__init__()
+    def load_parameters(self):
+        # If there is no presets folder, create one
+        if not os.path.exists("./Presets"):
+            os.makedirs("./Presets")
 
-    def update_image(self, image):
-        q_image = QImage(image.data.tobytes(), image.shape[1], image.shape[0], QImage.Format.Format_RGB888)
-        self.setPixmap(QPixmap.fromImage(q_image))
+        # Open file dialog to select a parameter file
+        filepath = filedialog.askopenfilename(title="Select a Parameter File",
+                                              filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
+                                              initialdir="./Presets/")
 
+        if not filepath:
+            return  # User cancelled the dialog
 
+        try:
+            with open(filepath, 'r') as f:
+                self.color_list = json.load(f)
 
-"""async def websocket_client():
-    async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:8765") as websocket:
-        if PROCESS_IMAGE:
-            message = "processed"
+            self.red_slider.set(self.color_list[self.active_color]["red"])
+            self.green_slider.set(self.color_list[self.active_color]["green"])
+            self.blue_slider.set(self.color_list[self.active_color]["blue"])
+            self.difference_slider.set(self.color_list[self.active_color]["difference"])
+            self.blur_slider.set(self.color_list[self.active_color]["blur"])
+            self.brightness_slider.set(self.color_list[self.active_color]["brightness"])
+            self.contrast_slider.set(self.color_list[self.active_color]["contrast"])
+
+            self.slider_update()
+        except Exception as e:
+            print(f"Error loading parameters: {e}")
+
+    def save_parameters(self):
+        # Open save file dialog to let the user name and choose where to save the file
+        file_path = filedialog.asksaveasfilename(defaultextension=".json",
+                                                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                                                 initialdir="./Presets/")
+
+        # Check if the user canceled the save operation
+        if not file_path:
+            return  # User cancelled the dialog
+
+        # Gather current slider values
+        values = {
+            "red": self.red_slider.get(),
+            "green": self.green_slider.get(),
+            "blue": self.blue_slider.get(),
+            "blur": self.blur_slider.get(),
+            "difference": self.difference_slider.get(),
+            "brightness": self.brightness_slider.get(),
+            "contrast": self.contrast_slider.get()
+        }
+        self.color_list[self.active_color] = values
+
+        # Write values to the file
+        try:
+            with open(file_path, 'w') as file:
+                json.dump(self.color_list, file, indent=4)
+            print(f"Parameters saved to {file_path}")
+        except Exception as e:
+            print(f"Error saving parameters: {e}")
+    
+    def add_color(self):
+        # Add a new color configuration
+        new_color_name = f"Color {len(self.color_list) + 1}"
+        self.color_list.append(self.color_list[self.active_color].copy())
+        self.update_combobox()
+        self.color_combobox.current(len(self.color_list) - 1)
+
+    def delete_color(self):
+        # Delete the selected color configuration
+        current_index = self.color_combobox.current()
+        if current_index >= 0:
+            del self.color_list[current_index]
+            self.update_combobox()
+            self.color_combobox.current(len(self.color_list) - 1)
+
+    def load_all_colors_from_json(self):
+        try:
+            with open('params.json', 'r') as f:
+                self.color_list = json.load(f)
+                # Update the combobox values based on loaded colors
+                self.update_combobox()
+        except FileNotFoundError:
+            print("params.json not found. Loading default color.")
+            self.color_list = [{"red": 0, "green": 0, "blue": 0, "difference": 50, "blur": 0, "brightness": 40, "contrast": 50}]
+            self.update_combobox()
+
+    def update_combobox(self):
+        # Update the values in the combobox
+        values = [f"Color {i+1}" for i in range(len(self.color_list))]
+        self.color_combobox['values'] = values
+        if values:
+            self.color_combobox.current(0)
         else:
-            message = "raw"
-        await websocket.send(message)
+            self.color_var.set('')
 
-        while True:  # Keep receiving and displaying new images
-            start = time.time()
-            response = await websocket.recv()
-            response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((480 // 4, 640 // 4, 3))
-            print(f"Received response")
-            # Update the image on the label
-            app.change_image(response, 1/(time.time() - start))
+    def on_color_select(self, event):
+        # Update UI based on selected color configuration
+        self.red_slider.configure(command="")
+        self.green_slider.configure(command="")
+        self.blue_slider.configure(command="")
+        self.difference_slider.configure(command="")
+        self.blur_slider.configure(command="")
 
-            print(f"Set IMG and received response at {1/(time.time() - start):.2f} fps")"""
+        current_index = self.color_combobox.current()
+        self.active_color = min(current_index, len(self.color_list))
+        if current_index >= 0:
+            selected_config = self.color_list[self.active_color]
+            self.red_slider.set(selected_config["red"])
+            self.green_slider.set(selected_config["green"])
+            self.blue_slider.set(selected_config["blue"])
+            self.difference_slider.set(selected_config["difference"])
+            self.blur_slider.set(selected_config["blur"])
+
+            self.command = f"sc -new_color={current_index}"
+
+        self.red_slider.configure(command=self.slider_update)
+        self.green_slider.configure(command=self.slider_update)
+        self.blue_slider.configure(command=self.slider_update)
+        self.difference_slider.configure(command=self.slider_update)
+        self.blur_slider.configure(command=self.slider_update)
+
+    def on_close(self):
+        # Stop the asyncio event loop
+        #asyncio.get_event_loop().stop()
+        # Exit the program
+        sys.exit()
 
 
 async def websocket_client():
     try:
         timeout = 10 # Set your desired timeout period here (in seconds)
-        while True:
-            async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:8765", ping_timeout=None, ping_interval=None) as websocket:
-                if app.new_vals is not None:
-                    await websocket.send(f"values {app.new_vals}")
-                    app.new_vals = None
+        async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:8765", ping_timeout=None,
+                                      ping_interval=None) as websocket:
+            while True:
+                if app.command is not None:
+                    await websocket.send(app.command)
+                    app.command = None
                     continue
                 if PROCESS_IMAGE:
-                    message = "processed"
+                    message = "pi"
                 else:
-                    message = "raw"
+                    message = "ri"
                 await websocket.send(message)
 
                 start = time.time()
@@ -333,5 +512,4 @@ if __name__ == "__main__":
     app = App()
     asyncio_thread = threading.Thread(target=start_asyncio_event_loop)
     asyncio_thread.start()
-    # Start running asyncio tasks periodically from Tkinter's event loop
     app.mainloop()

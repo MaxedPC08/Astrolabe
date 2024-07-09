@@ -1,34 +1,8 @@
 import asyncio
 import websockets
 import socket
-import cv2
-import numpy as np
-import time
-from Locater import Locater, loc_from_center
-import os
-
-def find_camera_index():
-    video_devices = []
-    for device in os.listdir("/dev"):
-        if device.startswith("video"):
-            video_devices.append(f"/dev/{device}")
-
-    for i in range(len(video_devices)):
-        cap = cv2.VideoCapture(i)
-        if not cap.isOpened():
-            print(f"Error: Could not open video device at index {i}")
-            continue
-        ret, frame = cap.read()
-        if not ret:
-            print(f"Error: Could not read frame from video device at index {1}")
-            continue
-        print(f"Successfully opened video device at index {i}")
-        cap.release()
-        return i
-
-
-#Set up an opencv camera object
-cam = cv2.VideoCapture(find_camera_index())
+import inspect
+from functional import functionDict
 
 # Get the IP address of the Ethernet interface
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -46,48 +20,55 @@ async def websocket_server(websocket, path):
     :return:
     """
     async for message in websocket:
-        if message == "processed":
-            #Only send images if the client requests it. This is to prevent the server from sending images when the client is not ready.
-            #Read the image from the camera
-            start = time.time()
-            img = cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (160, 120))
-            img, center, width = locater.locate(img) #Locate the object in the image. Comment out this line if you don't want to process the image.
-            #loc_from_center(center, width)
-            image_array = np.asarray(img).flatten() #You can adjust this if you want to get the center and width of the object
-            await websocket.send(image_array.tobytes()) # Center is y, x, from top left
-        elif message == "raw":
-            #Read the image from the camera
-            start = time.time()
-            img = cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (160, 120))
-            image_array = np.asarray(img).flatten()
-            await websocket.send(image_array.tobytes())
-        elif message[:6] == "values":
-            print(f"Received message: {message}")
-            values = message[7:].split(",")
-            locater.red_val = int(values[0])
-            locater.green_val = int(values[1])
-            locater.blue_val = int(values[2])
-            locater.difference_val = int(values[3])
-            locater.blur_val = int(values[4])
-            cam.set(cv2.CAP_PROP_BRIGHTNESS, float(values[5]))
-            cam.set(cv2.CAP_PROP_CONTRAST, float(values[6]))
+        split_message = message.split(" -")
+        args = {}
+        if len(split_message) > 1:
+            for i, arg in enumerate(split_message[1:]):
+                try:
+                    parameter, val = arg.split("=")
+                except ValueError as e:
+                    message = str(e)
+                    if "too many values to unpack" in message:
+                        # Handle the case where there are too many values
+                        await websocket.send(f"""Error: Too many values to unpack.
+                        Please make sure that the parameters are the format "parameter1=value1 -parameter2=value2".
+                        Do not include spaces between the parameter and the value, and do not include equal signs in the value.""")
+                        continue
+                    elif "too few values to unpack" in message:
+                        # Handle the case where there are too few values
+                        await websocket.send(f"""Warning: Too few values to unpack. We are setting this parameter to true.
+                                                Please make sure that the parameters are the format "parameter1=value1 -parameter2=value2".
+                                                Do not include spaces between the parameter and the value, and make sure that all parameters have values.""")
+                        parameter = arg
+                        val = True
+                    else:
+                        # Handle other ValueError cases or re-raise
+                        raise
 
-            # Save the new values to the params.txt file
-            with open('params.txt', 'w') as f:
-                f.write(f"red: {locater.red_val}\n")
-                f.write(f"green: {locater.green_val}\n")
-                f.write(f"blue: {locater.blue_val}\n")
-                f.write(f"blur: {locater.blur_val}\n")
-                f.write(f"difference: {locater.difference_val}\n")
-                f.write(f"brightness: {values[5]}\n")
-                f.write(f"contrast: {values[6]}\n")
+                args[parameter] = val
 
-            print(f"Set values to {values}")
+        try:
+            if inspect.iscoroutinefunction(functionDict[split_message[0]]):
+                await functionDict[split_message[0]](websocket, **args)
+            else:
+                functionDict[split_message[0]](**args)
+        except KeyError as e:
+            print(f"Error: Function {split_message[0]} not found. Please make sure that the function name is spelled correctly and that it exists. The function names are case-sensitive.")
+            await websocket.send(f"Error: Function {split_message[0]} not found."
+                                 f" Please make sure that the function name is spelled correctly and that it exists."
+                                 f" The function names are case-sensitive.")
+
+        #except TypeError as e:
+            """print(f"{e} when calling function {split_message[0]} with arguments {args}."
+                                 f" Please make sure that the function is called with the correct number of arguments.")
+            await websocket.send(f"{e} when calling function {split_message[0]} with arguments {args}."
+                                 f" Please make sure that the function is called with the correct number of arguments.")"""
+        except ValueError as e:
+            print(f"Error: {e}")
+            await websocket.send(f"{e}")
+
 
 if __name__ == "__main__":
-    locater = Locater()
     start_server = websockets.serve(websocket_server, ethernet_ip, 8765, ping_timeout=None, ping_interval=None)
 
     print(f"WebSocket server listening on {ethernet_ip}:8765")

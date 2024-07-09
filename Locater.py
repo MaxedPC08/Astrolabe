@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
-import time
-
+import json
 # Set up some constants for distance calcs
 CAMERA_HORIZONTAL_RESOLUTION_PIXELS = 640//4 #This is the resolution of the input image, not necessarily the camera.
 CAMERA_VERTICAL_RESOLUTION_PIXELS = 480//4 #This is the resolution of the input image, not necessarily the camera.
@@ -25,31 +24,40 @@ class Locater:
     """
     def __init__(self):
         """
-        This function initializes the Locater class. It reads the parameters from the params.txt file and sets the target color.
+        This function initializes the Locater class. It reads the parameters from the params.json file and sets the target color.
         If there is no such file then it uses the default values. Please make sure that file exists.
         """
+        self.active_color = 0
         self.green_line = np.array([[0, 255, 0] for i in range(11)])
         self.red_line = np.array([[0, 0, 255] for i in range(11)])
         try:
-            with open('params.txt', 'r') as f:
-                lines = f.readlines()
-                self.red_val = int(lines[0].split(": ")[1])
-                self.green_val = int(lines[1].split(": ")[1])
-                self.blue_val = int(lines[2].split(": ")[1])
-                self.blur_val = int(lines[3].split(": ")[1])
-                self.difference_val = int(lines[4].split(": ")[1])
+            with open('params.json', 'r') as f:
+                self.color_list = json.load(f)
+        except json.decoder.JSONDecodeError:
+            print("params.json has an incorrect format. Using default values.")
+            self.color_list = [{"red": 255,
+                                "green": 255,
+                                "blue": 255,
+                                "difference": 50,
+                                "blur": 5}]
+
+            with open('params.json', 'w') as f:
+                json.dump(self.color_list, f, indent=4)
+
         except FileNotFoundError:
-            print("params.txt not found. Using default values.")
-            self.red_val = 0
-            self.green_val = 0
-            self.blue_val = 0
-            self.blur_val = 0
-            self.difference_val = 50
+            print("params.json not found. Using default values.")
+            self.color_list = [{"red": 255,
+                                "green": 255,
+                                "blue": 255,
+                                "difference": 50,
+                                "blur": 5}]
+
+            with open('params.json', 'w') as f:
+                json.dump(self.color_list, f, indent=4)
 
         # Preprocess the target color for maximum efficiency
-        self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
 
-    def locate(self, image, blur=-1, dif=-1, red_val=-1, green_val=-1, blue_val=-1):
+    def locate(self, image, blur=-1, dif=-1):
         """
         This function locates the object in the image. It uses the target color and the parameters to find the object.
         :param blur:
@@ -60,24 +68,19 @@ class Locater:
         center is the center of the object (x, y), and width is the width of the object
         """
         if blur == -1:
-            blur = self.blur_val
+            blur = self.color_list[self.active_color]["blur"]
 
         if dif == -1:
-            dif = self.difference_val
-
-        if red_val != -1 and green_val != -1 and blue_val != -1:
-            self.red_val = red_val
-            self.green_val = green_val
-            self.blue_val = blue_val
-
-        self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
+            dif = self.color_list[self.active_color]["difference"]
 
         # Convert the image and target color to the Lab color space
         new_color = [-0.666, -0.666, -0.666]
         image_copy = image.copy()
 
         # Normalize the image and target color
-        array = np.average(np.abs(image - np.array(self.target_color)), 2)
+        array = np.average(np.abs(image - np.array([self.color_list[self.active_color]["red"],
+                                                    self.color_list[self.active_color]["green"],
+                                                    self.color_list[self.active_color]["blue"]])), 2)
         if np.all(array > dif*2):
             # print("No matching color found")
             return image, (-1, -1), -1
@@ -130,39 +133,32 @@ class Locater:
 
         return image, center, right-left
 
-    def locate_stripped(self, image, blur=-1, dif=-1, red_val=-1, green_val=-1, blue_val=-1):
+    def locate_stripped(self, image):
         """
         This function locates the object in the image. It uses the target color and the parameters to find the object.
         :param image: Numpy array of the image
         :return: (ndarray, tuple, int) where the first is the processed image with crosshairs etc.,
         center is the center of the object (x, y), and width is the width of the object
         """
-        if blur == -1:
-            blur = self.blur_val
-
-        if dif == -1:
-            dif = self.difference_val
-
-        if red_val != -1 or green_val != -1 or blue_val != -1:
-            self.red_val = red_val
-            self.green_val = green_val
-            self.blue_val = blue_val
-            self.target_color = np.array([self.red_val, self.green_val, self.blue_val])
 
         # Convert the image and target color to the Lab color space
         new_color = [-1, -1, -1]
 
         # Normalize the image and target color
-        array = np.sum(np.square(image - np.array(self.target_color)), 2)
-        if np.all(array > dif**2*3):
+        array = np.sum(np.square(image - np.array([self.color_list[self.active_color]["red"],
+                                                   self.color_list[self.active_color]["green"],
+                                                   self.color_list[self.active_color]["blue"]])), 2)
+        if np.all(array > self.color_list[self.active_color]["dif"]**2*3):
             #print("No matching color found")
             return image, (-1, -1), -1
         x, y = np.unravel_index(np.argmin(array), array.shape)
 
-        if blur > 0:
-            kernel = np.ones((blur, blur), np.float32) / (blur ** 2)
+        if self.color_list[self.active_color]["blur"] > 0:
+            kernel = (np.ones((self.color_list[self.active_color]["blur"],
+                              self.color_list[self.active_color]["blur"]), np.float32)
+                      / (self.color_list[self.active_color]["blur"] ** 2))
             image = cv2.filter2D(image, -1, kernel)
-            image = cv2.medianBlur(image, blur*2+1)
+            image = cv2.medianBlur(image, self.color_list[self.active_color]["blur"]*2+1)
 
         cols, rows = image.shape[:2]
 
@@ -173,7 +169,9 @@ class Locater:
         mask = np.zeros((cols + 2, rows + 2), np.uint8)
 
         # Perform the flood fill operation
-        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif], [dif, dif, dif])
+        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color,
+                                       [self.color_list[self.active_color]["dif"] for _ in range(3)],
+                                       [self.color_list[self.active_color]["dif"] for _ in range(3)])
         image = image[:, :, 0].clip(-1, 0) * -1
 
         # Process the image and make it viewer - worthy
