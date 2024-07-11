@@ -62,6 +62,13 @@ async def raw_image(websocket):
     image_array = np.asarray(img).flatten()
     await websocket.send(image_array.tobytes())
 
+async def get_location(websocket):
+    img = cv2.cvtColor(cam.read()[1], cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (160, 120))
+    center, width = locater.locate_stripped(img)
+    send = {"center": center, "width": width}
+    await websocket.send(json.dumps(send))
+
 def switch_color(new_color=0):
     print(new_color)
     locater.active_color = min(int_we(new_color, "new_color"), len(locater.color_list) - 1)
@@ -83,5 +90,7 @@ functionDict = {
     "switch_color": switch_color,
     "sc": switch_color,
     "save_params": save_params,
-    "sp": save_params
+    "sp": save_params,
+    "location": get_location,
+    "loc": get_location
 }

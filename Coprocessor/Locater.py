@@ -101,7 +101,9 @@ class Locater:
         mask = np.zeros((cols + 2, rows + 2), np.uint8)
 
         # Perform the flood fill operation
-        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif], [dif, dif, dif])
+        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color,
+                                       [self.color_list[self.active_color]["dif"] for _ in range(3)],
+                                       [self.color_list[self.active_color]["dif"] for _ in range(3)])
         image = image[:, :, 0].clip(-1, 0) * -1
 
         # Process the image and make it viewer - worthy
@@ -185,9 +187,9 @@ class Locater:
         bottom = np.max(indices[0])
         top = np.min(indices[0])
 
-        loc_from_center(center, right-left)
+        # loc_from_center(center, right-left)
 
-        return image, center, right-left
+        return center, right-left
 
 def loc_from_center(center, width):
     """

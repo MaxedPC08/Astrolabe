@@ -123,7 +123,7 @@ class App(tk.Tk):
 
         # Load initial slider values from the params.txt file
         try:
-            with open('params.json', 'r') as f:
+            with open('../Coprocessor/params.json', 'r') as f:
                 self.color_list = json.load(f)
                 red_val = self.color_list[0]["red"]
                 green_val = self.color_list[0]["green"]
@@ -142,7 +142,7 @@ class App(tk.Tk):
             brightness_val = 40
             contrast_val = 50
             self.color_list = [{"red": red_val, "green": green_val, "blue": blue_val, "difference": difference_val, "blur": blur_val, "brightness": brightness_val, "contrast": contrast_val}]
-            with open('params.json', 'w') as f:
+            with open('../Coprocessor/params.json', 'w') as f:
                 json.dump(self.color_list, f, indent=4)
 
         self.red_slider.set(red_val)
@@ -307,7 +307,7 @@ class App(tk.Tk):
         }
         self.color_list[min(self.active_color, len(self.color_list))] = val_dict
 
-        with open('params.json', 'w') as f:
+        with open('../Coprocessor/params.json', 'w') as f:
             json.dump(self.color_list, f, indent=4)
 
         temp = self.color_list.copy()
@@ -346,8 +346,8 @@ class App(tk.Tk):
 
     def load_parameters(self):
         # If there is no presets folder, create one
-        if not os.path.exists("./Presets"):
-            os.makedirs("./Presets")
+        if not os.path.exists("Presets"):
+            os.makedirs("Presets")
 
         # Open file dialog to select a parameter file
         filepath = filedialog.askopenfilename(title="Select a Parameter File",
@@ -420,7 +420,7 @@ class App(tk.Tk):
 
     def load_all_colors_from_json(self):
         try:
-            with open('params.json', 'r') as f:
+            with open('../Coprocessor/params.json', 'r') as f:
                 self.color_list = json.load(f)
                 # Update the combobox values based on loaded colors
                 self.update_combobox()
@@ -484,7 +484,7 @@ async def websocket_client():
                 if PROCESS_IMAGE:
                     message = "pi"
                 else:
-                    message = "ri"
+                    message = "apriltag"
                 await websocket.send(message)
 
                 start = time.time()

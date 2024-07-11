@@ -2,7 +2,7 @@ import asyncio
 import websockets
 import socket
 import inspect
-from functional import functionDict
+from Coprocessor.functional import functionDict
 
 # Get the IP address of the Ethernet interface
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QSlider, QLabel, QVBoxLay
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt
 import time
-from Locater import Locater
+from Coprocessor.Locater import Locater
 
 
 # This file is used to create the parameters for
@@ -21,7 +21,7 @@ class Window(QMainWindow):
         self.green_line = np.array([[0, 255, 0] for i in range(11)])
         self.red_line = np.array([[0, 0, 255] for i in range(11)])
         super().__init__()
-        self.image = cv2.imread('image.jpg')  # Load your image here
+        self.image = cv2.imread('../image.jpg')  # Load your image here
         self.original_image = self.image.copy()
 
         self.red_slider = self.create_slider('Red', 0, 255, 0)
@@ -99,7 +99,7 @@ class Window(QMainWindow):
 
     def load_params(self):
         try:
-            with open('../FYRE-FRSee/params.txt', 'r') as f:
+            with open('../params.txt', 'r') as f:
                 lines = f.readlines()
                 self.red_slider.setValue(int(lines[0].split(": ")[1]))
                 self.green_slider.setValue(int(lines[1].split(": ")[1]))
@@ -110,7 +110,7 @@ class Window(QMainWindow):
             print("params.txt not found. Using default values.")
 
     def save_params(self):
-        with open('../FYRE-FRSee/params.txt', 'w') as f:
+        with open('../params.txt', 'w') as f:
             f.write(f"Red: {self.red_slider.value()}\n")
             f.write(f"Green: {self.green_slider.value()}\n")
             f.write(f"Blue: {self.blue_slider.value()}\n")
