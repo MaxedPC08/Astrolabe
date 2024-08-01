@@ -9,10 +9,15 @@ import numpy as np
 import os
 import json
 import sys
+import cv2
 
 
 SAVE_IMAGE = False
-PROCESS_IMAGE = False
+IMAGE_WIDTH = 640
+IMAGE_HEIGHT = 480
+PORT = 50001
+
+MODE = "apriltag"
 RASPBERRY_PI_IP = "10.42.0.118" # Ah! You have my IP address! I'm doomed! Jk this is just the local one.
 
 class App(tk.Tk):
@@ -76,17 +81,31 @@ class App(tk.Tk):
         self.color_combobox = ttk.Combobox(color_button_frame, textvariable=self.color_var)
         self.color_combobox['values'] = ['Color 1']  # Initial dummy value
         self.color_combobox.current(0)
-        self.color_combobox.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.X, expand=True)
+        self.color_combobox.pack(pady=5, padx=5, fill=tk.X, expand=True)
+
+        self.mode_var = tk.StringVar()
+        self.mode_combobox = ttk.Combobox(color_button_frame, textvariable=self.mode_var)
+        self.mode_combobox['values'] = ['AprilTag', 'Processed', 'Raw']
+        self.mode_combobox.current(0)  # Default to AprilTag mode
+
 
         # Buttons for adding and deleting colors
         self.add_color_button = ttk.Button(color_button_frame, text="Add Color", command=self.add_color)
-        self.add_color_button.pack(side=tk.RIGHT, pady=5, padx=5, fill=tk.X, expand=True)
+        self.add_color_button.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.X, expand=True)
 
         self.delete_color_button = ttk.Button(color_button_frame, text="Delete Color", command=self.delete_color)
-        self.delete_color_button.pack(side=tk.RIGHT, pady=5, padx=5, fill=tk.X, expand=True)
+        self.delete_color_button.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.X, expand=True)
 
         # Update combobox when selection changes
         self.color_combobox.bind("<<ComboboxSelected>>", self.on_color_select)
+
+        self.mode_var = tk.StringVar()
+        self.mode_combobox = ttk.Combobox(color_button_frame, textvariable=self.mode_var)
+        self.mode_combobox['values'] = ['AprilTag', 'Processed', 'Raw', 'Headless Piece Location']
+        self.mode_combobox.current(0)  # Default to AprilTag mode
+        self.mode_combobox.pack(side=tk.BOTTOM, pady=5, padx=5, fill=tk.X, expand=True)
+        self.mode_combobox.bind("<<ComboboxSelected>>", self.on_mode_select)
+
 
         # Sliders and toggles in the right frame with increased width (length parameter)
         self.red_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Red',
@@ -105,8 +124,6 @@ class App(tk.Tk):
                                         command=self.slider_update, length=300)
         self.save_image_toggle = ttk.Checkbutton(self.frame_right, text="Save Image", onvalue=True, offvalue=False,
                                                  command=self.save_image_toggle_func)
-        self.process_image_toggle = ttk.Checkbutton(self.frame_right, text="Process Image", onvalue=True,
-                                                    offvalue=False, command=self.process_image_toggle_func)
 
         # Pack sliders and toggles in the right frame
         self.red_slider.pack()
@@ -117,7 +134,7 @@ class App(tk.Tk):
         self.brightness_slider.pack()
         self.contrast_slider.pack()
         self.save_image_toggle.pack()
-        self.process_image_toggle.pack()
+
 
         self.image_label.bind("<Button-1>", self.on_image_click)
 
@@ -201,7 +218,7 @@ class App(tk.Tk):
         style.configure("Custom.TCheckbutton", background=dark_frame_color, foreground=light_text_color,
                         selectcolor=dark_frame_color, borderwidth=0)
         self.save_image_toggle.configure(style="Custom.TCheckbutton")
-        self.process_image_toggle.configure(style="Custom.TCheckbutton")
+
 
         style = ttk.Style()
 
@@ -245,9 +262,6 @@ class App(tk.Tk):
         self.save_image_toggle.bind("<Enter>", on_enter)
         self.save_image_toggle.bind("<Leave>", on_leave)
 
-        self.process_image_toggle.bind("<Enter>", on_enter)
-        self.process_image_toggle.bind("<Leave>", on_leave)
-
         self.load_all_colors_from_json()
 
     def display_image(self, pil_image):
@@ -278,7 +292,43 @@ class App(tk.Tk):
         self.image_label.image = photo_image  # Keep a reference to avoid garbage collection  # Keep a reference to avoid garbage collection
 
     def change_image(self, new_image_array, fps=0.0):
-        new_pil_image = Image.fromarray(new_image_array)
+        if isinstance(new_image_array, np.ndarray):
+            new_pil_image = Image.fromarray(new_image_array)
+        else:
+            image = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=np.uint8)
+
+            # Define the font and initial font scale
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = IMAGE_HEIGHT // 300
+            thickness = IMAGE_HEIGHT // 600
+
+            # Split the text into lines that fit within the image width
+            lines = []
+            words = str(new_image_array).split()
+            current_line = ""
+            for word in words:
+                test_line = f"{current_line} {word}".strip()
+                text_size = cv2.getTextSize(test_line, font, font_scale, thickness)[0]
+                if text_size[0] <= IMAGE_WIDTH - 20:  # 20 pixels padding
+                    current_line = test_line
+                else:
+                    lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+
+            # Calculate the starting y position
+            y0, dy = (image.shape[0] // 2) - (len(lines) * 20 // 2), 30  # Adjust y0 and dy as needed
+
+            # Add the text to the image
+            for i, line in enumerate(lines):
+                text_size = cv2.getTextSize(line, font, font_scale, thickness)[0]
+                text_x = (image.shape[1] - text_size[0]) // 2
+                text_y = y0 + i * dy
+                cv2.putText(image, line, (text_x, text_y), font, font_scale, (255, 255, 255), thickness)
+
+            new_pil_image = Image.fromarray(image)
+
         self.display_image(new_pil_image)
         self.fps_label.configure(text=f"FPS: {fps:.4f}")
         self.current_pil_image = new_pil_image
@@ -320,9 +370,19 @@ class App(tk.Tk):
         global SAVE_IMAGE
         SAVE_IMAGE = not SAVE_IMAGE
 
-    def process_image_toggle_func(self):
-        global PROCESS_IMAGE
-        PROCESS_IMAGE = not PROCESS_IMAGE
+
+    def on_mode_select(self, event):
+        global MODE
+        selected_mode = self.mode_var.get()
+        if selected_mode == 'AprilTag':
+             MODE = "apriltag"
+        elif selected_mode == 'Processed':
+            MODE = "processed_image"
+        elif selected_mode == 'Raw':
+            MODE = "raw_image"
+        elif selected_mode == 'Headless Piece Location':
+            MODE = "find_piece"
+
 
     def on_image_click(self, event):
         if self.current_pil_image is None:
@@ -474,22 +534,22 @@ class App(tk.Tk):
 async def websocket_client():
     try:
         timeout = 10 # Set your desired timeout period here (in seconds)
-        async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:8765", ping_timeout=None,
+        async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:{PORT}", ping_timeout=None,
                                       ping_interval=None) as websocket:
             while True:
                 if app.command is not None:
                     await websocket.send(app.command)
                     app.command = None
                     continue
-                if PROCESS_IMAGE:
-                    message = "pi"
-                else:
-                    message = "apriltag"
-                await websocket.send(message)
+                await websocket.send(MODE)
 
                 start = time.time()
                 response = await websocket.recv()
-                response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((480 // 4, 640 // 4, 3))
+                try:
+                    response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((480 // 4, 640 // 4, 3))
+                except Exception as e:
+                    print(f"Error converting image data: {e}")
+                    pass
                 # Update the image on the label
                 app.change_image(response, 1 / (time.time() - start))
 
