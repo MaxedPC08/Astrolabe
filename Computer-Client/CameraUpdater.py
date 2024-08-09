@@ -23,7 +23,7 @@ class CameraApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Camera Settings")
-        self.config_file = "camera_settings.json"
+        self.config_file = "camera-settings.json"
 
         # Create input fields for IP address and port
         self.create_input_field("IP Address:", "ip_address")
