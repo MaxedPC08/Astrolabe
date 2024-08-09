@@ -12,22 +12,18 @@ import sys
 import cv2
 
 
-SAVE_IMAGE = False
-IMAGE_WIDTH = 640
-IMAGE_HEIGHT = 480
-PORT = 50001
-
-MODE = "apriltag"
-RASPBERRY_PI_IP = "10.42.0.118" # Ah! You have my IP address! I'm doomed! Jk this is just the local one.
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.save_image = False
         self.current_pil_image = None
         self.command = None
         self.active_color = 0
         self.title("Image Viewer")
         self.geometry("1200x600")
+        self.raspberry_pi_ip = "10.42.0.118"
+        self.port = 50000
+        self.mode = "apriltag_image"
 
         # Create main frames for layout
         self.frame_left = tk.Frame(self)
@@ -66,28 +62,48 @@ class App(tk.Tk):
         right_frame_sep = tk.Frame(self.frame_right, width=2, bg='black')
         right_frame_sep.pack()
 
-        # Initialize and pack the Load Parameters button inside the buttons frame
-        self.load_params_button = ttk.Button(buttons_frame, text="Load Parameters", command=self.load_parameters)
-        self.load_params_button.pack(side=tk.LEFT, fill=tk.X, expand=True)  # Adjust padding as needed
 
-        # Initialize and pack the Save Parameters button next to the Load Parameters button
-        self.save_params_button = ttk.Button(buttons_frame, text="Save Parameters", command=self.save_parameters)
-        self.save_params_button.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+
+        ip_port_frame = tk.Frame(self.frame_right)
+        ip_port_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
+
+        tk.Label(ip_port_frame, text="IP Address:").pack(side=tk.LEFT, padx=5, pady=10)
+        self.ip_entry = ttk.Entry(ip_port_frame)
+        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=10)
+        self.ip_entry.insert(0, self.raspberry_pi_ip)
+
+        tk.Label(ip_port_frame, text="Port:").pack(side=tk.LEFT, padx=5, pady=10)
+        self.port_entry = ttk.Entry(ip_port_frame)
+        self.port_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=10)
+        self.port_entry.insert(0, str(self.port))
+
+        self.update_ip_button = ttk.Button(ip_port_frame, text="Update IP and Port", command=self.update_ip)
+        self.update_ip_button.pack(side=tk.LEFT, fill=tk.X, padx=5, pady=10)
 
         color_button_frame = tk.Frame(self.frame_right)
         color_button_frame.pack(side=tk.TOP, fill=tk.X)
 
-        self.color_var = tk.StringVar()
-        self.color_combobox = ttk.Combobox(color_button_frame, textvariable=self.color_var)
-        self.color_combobox['values'] = ['Color 1']  # Initial dummy value
-        self.color_combobox.current(0)
-        self.color_combobox.pack(pady=5, padx=5, fill=tk.X, expand=True)
+
 
         self.mode_var = tk.StringVar()
         self.mode_combobox = ttk.Combobox(color_button_frame, textvariable=self.mode_var)
         self.mode_combobox['values'] = ['AprilTag', 'Processed', 'Raw']
         self.mode_combobox.current(0)  # Default to AprilTag mode
+        self.mode_var = tk.StringVar()
+        self.mode_combobox = ttk.Combobox(color_button_frame, textvariable=self.mode_var)
+        self.mode_combobox['values'] = ['AprilTag', 'Processed', 'Raw', 'Headless Piece Location',
+                                        "Headless AprilTag Detection"]
+        self.mode_combobox.current(0)  # Default to AprilTag mode
+        self.mode_combobox.pack(side=tk.BOTTOM, pady=5, padx=5, fill=tk.X, expand=True)
+        self.mode_combobox.bind("<<ComboboxSelected>>", self.on_mode_select)
 
+        # Initialize and pack the Load Parameters button inside the buttons frame
+        self.load_params_button = ttk.Button(color_button_frame, text="Load", command=self.load_parameters)
+        self.load_params_button.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=5, padx=5)  # Adjust padding as needed
+
+        # Initialize and pack the Save Parameters button next to the Load Parameters button
+        self.save_params_button = ttk.Button(color_button_frame, text="Save", command=self.save_parameters)
+        self.save_params_button.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=5, padx=5)
 
         # Buttons for adding and deleting colors
         self.add_color_button = ttk.Button(color_button_frame, text="Add Color", command=self.add_color)
@@ -96,16 +112,16 @@ class App(tk.Tk):
         self.delete_color_button = ttk.Button(color_button_frame, text="Delete Color", command=self.delete_color)
         self.delete_color_button.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.X, expand=True)
 
-        # Update combobox when selection changes
+        self.color_var = tk.StringVar()
+        self.color_combobox = ttk.Combobox(color_button_frame, textvariable=self.color_var)
+        self.color_combobox['values'] = ['Color 1']  # Initial dummy value
+        self.color_combobox.current(0)
+        self.color_combobox.pack(pady=5, padx=5, fill=tk.X, expand=True)
         self.color_combobox.bind("<<ComboboxSelected>>", self.on_color_select)
 
-        self.mode_var = tk.StringVar()
-        self.mode_combobox = ttk.Combobox(color_button_frame, textvariable=self.mode_var)
-        self.mode_combobox['values'] = ['AprilTag', 'Processed', 'Raw', 'Headless Piece Location']
-        self.mode_combobox.current(0)  # Default to AprilTag mode
-        self.mode_combobox.pack(side=tk.BOTTOM, pady=5, padx=5, fill=tk.X, expand=True)
-        self.mode_combobox.bind("<<ComboboxSelected>>", self.on_mode_select)
 
+
+        # Add IP and Port input fields
 
         # Sliders and toggles in the right frame with increased width (length parameter)
         self.red_slider = tk.Scale(self.frame_right, from_=0, to=255, orient='horizontal', label='Red',
@@ -118,12 +134,10 @@ class App(tk.Tk):
                                           command=self.slider_update, length=300)
         self.blur_slider = tk.Scale(self.frame_right, from_=0, to=40, orient='horizontal', label='Blur',
                                     command=self.slider_update, length=300)
-        self.brightness_slider = tk.Scale(self.frame_right, from_=0, to=250, orient='horizontal', label='Brightness',
-                                          command=self.slider_update, length=300)
-        self.contrast_slider = tk.Scale(self.frame_right, from_=0, to=20, orient='horizontal', label='Contrast',
-                                        command=self.slider_update, length=300)
         self.save_image_toggle = ttk.Checkbutton(self.frame_right, text="Save Image", onvalue=True, offvalue=False,
                                                  command=self.save_image_toggle_func)
+
+        self.text_box = tk.Text(self.frame_right, height=10, width=30)
 
         # Pack sliders and toggles in the right frame
         self.red_slider.pack()
@@ -131,35 +145,30 @@ class App(tk.Tk):
         self.blue_slider.pack()
         self.difference_slider.pack()
         self.blur_slider.pack()
-        self.brightness_slider.pack()
-        self.contrast_slider.pack()
         self.save_image_toggle.pack()
-
+        self.text_box.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+        self.text_box.bind("<<Modified>>", lambda event: self.scroll_to_bottom())
+        self.text_box.bind("<KeyRelease>", lambda event: self.scroll_to_bottom())
 
         self.image_label.bind("<Button-1>", self.on_image_click)
 
-        # Load initial slider values from the params.txt file
         try:
-            with open('../Coprocessor/params.json', 'r') as f:
+            with open('params.json', 'r') as f:
                 self.color_list = json.load(f)
                 red_val = self.color_list[0]["red"]
                 green_val = self.color_list[0]["green"]
                 blue_val = self.color_list[0]["blue"]
                 blur_val = self.color_list[0]["blur"]
                 difference_val = self.color_list[0]["difference"]
-                brightness_val = self.color_list[0]["brightness"]
-                contrast_val = self.color_list[0]["contrast"]
         except:
-            print("params.json not found. Using default values.")
+            self.insert_text("params.json not found. Using default values.")
             red_val = 0
             green_val = 0
             blue_val = 0
             blur_val = 0
             difference_val = 50
-            brightness_val = 40
-            contrast_val = 50
-            self.color_list = [{"red": red_val, "green": green_val, "blue": blue_val, "difference": difference_val, "blur": blur_val, "brightness": brightness_val, "contrast": contrast_val}]
-            with open('../Coprocessor/params.json', 'w') as f:
+            self.color_list = [{"red": red_val, "green": green_val, "blue": blue_val, "difference": difference_val, "blur": blur_val}]
+            with open('params.json', 'w') as f:
                 json.dump(self.color_list, f, indent=4)
 
         self.red_slider.set(red_val)
@@ -167,8 +176,6 @@ class App(tk.Tk):
         self.blue_slider.set(blue_val)
         self.difference_slider.set(difference_val)
         self.blur_slider.set(blur_val)
-        self.brightness_slider.set(brightness_val)
-        self.contrast_slider.set(contrast_val)
 
         # First, define the colors for the dark mode
         dark_background_color = "#333333"
@@ -209,10 +216,6 @@ class App(tk.Tk):
                                         highlightbackground=dark_frame_color, activebackground=light_text_color)
         self.blur_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
                                     highlightbackground=dark_frame_color, activebackground=light_text_color)
-        self.brightness_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
-                                        highlightbackground=dark_frame_color, activebackground=light_text_color)
-        self.contrast_slider.configure(bg=dark_frame_color, fg=light_text_color, troughcolor=slider_trough_color,
-                                        highlightbackground=dark_frame_color, activebackground=light_text_color)
 
         # Toggle buttons - Custom style for Checkbuttons
         style.configure("Custom.TCheckbutton", background=dark_frame_color, foreground=light_text_color,
@@ -244,6 +247,8 @@ class App(tk.Tk):
         self.add_color_button.configure(style="Dark.TButton")
         self.delete_color_button.configure(style="Dark.TButton")
         self.color_combobox.configure(style="Dark.TCombobox")
+        self.mode_combobox.configure(style="Dark.TCombobox")
+        self.text_box.configure(bg=dark_frame_color, fg=light_text_color, insertbackground=light_text_color)
 
         # Step 2: Create functions to change the style on hover
         def on_enter(event):
@@ -263,6 +268,11 @@ class App(tk.Tk):
         self.save_image_toggle.bind("<Leave>", on_leave)
 
         self.load_all_colors_from_json()
+
+    def update_ip(self):
+        self.raspberry_pi_ip = self.ip_entry.get()
+        self.port = int(self.port_entry.get())
+        self.insert_text(f"Updated IP and Port to {self.raspberry_pi_ip}:{self.port}\n")
 
     def display_image(self, pil_image):
         # Get the dimensions of the frame
@@ -294,47 +304,23 @@ class App(tk.Tk):
     def change_image(self, new_image_array, fps=0.0):
         if isinstance(new_image_array, np.ndarray):
             new_pil_image = Image.fromarray(new_image_array)
+            self.display_image(new_pil_image)
+            self.current_pil_image = new_pil_image
+            if self.save_image:
+                new_pil_image.save("image.jpg")
         else:
-            image = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=np.uint8)
-
-            # Define the font and initial font scale
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = IMAGE_HEIGHT // 300
-            thickness = IMAGE_HEIGHT // 600
-
-            # Split the text into lines that fit within the image width
-            lines = []
-            words = str(new_image_array).split()
-            current_line = ""
-            for word in words:
-                test_line = f"{current_line} {word}".strip()
-                text_size = cv2.getTextSize(test_line, font, font_scale, thickness)[0]
-                if text_size[0] <= IMAGE_WIDTH - 20:  # 20 pixels padding
-                    current_line = test_line
-                else:
-                    lines.append(current_line)
-                    current_line = word
-            if current_line:
-                lines.append(current_line)
-
-            # Calculate the starting y position
-            y0, dy = (image.shape[0] // 2) - (len(lines) * 20 // 2), 30  # Adjust y0 and dy as needed
-
-            # Add the text to the image
-            for i, line in enumerate(lines):
-                text_size = cv2.getTextSize(line, font, font_scale, thickness)[0]
-                text_x = (image.shape[1] - text_size[0]) // 2
-                text_y = y0 + i * dy
-                cv2.putText(image, line, (text_x, text_y), font, font_scale, (255, 255, 255), thickness)
-
-            new_pil_image = Image.fromarray(image)
-
-        self.display_image(new_pil_image)
+            self.insert_text(new_image_array + "\n")
         self.fps_label.configure(text=f"FPS: {fps:.4f}")
-        self.current_pil_image = new_pil_image
-        if SAVE_IMAGE:
-            new_pil_image.save("image.jpg")
 
+    def scroll_to_bottom(self):
+        self.text_box.see(tk.END)
+    
+    def insert_text(self, text):
+        self.text_box.config(state=tk.NORMAL)
+        self.text_box.insert(tk.END, text)
+        self.text_box.config(state=tk.DISABLED)
+        self.scroll_to_bottom()
+    
     def slider_update(self, value=None):
         # Assemble the slider values into a string
         red_value = self.red_slider.get()
@@ -342,8 +328,6 @@ class App(tk.Tk):
         blue_value = self.blue_slider.get()
         difference_value = self.difference_slider.get()
         blur_value = self.blur_slider.get()
-        brightness_value = self.brightness_slider.get()
-        contrast_value = self.contrast_slider.get()
 
 
         val_dict = {
@@ -352,12 +336,10 @@ class App(tk.Tk):
             "blue": blue_value,
             "difference": difference_value,
             "blur": blur_value,
-            "brightness": brightness_value,
-            "contrast": contrast_value
         }
         self.color_list[min(self.active_color, len(self.color_list))] = val_dict
 
-        with open('../Coprocessor/params.json', 'w') as f:
+        with open('params.json', 'w') as f:
             json.dump(self.color_list, f, indent=4)
 
         temp = self.color_list.copy()
@@ -367,39 +349,56 @@ class App(tk.Tk):
         self.command = f"sp -values={json.dumps(temp)}"
 
     def save_image_toggle_func(self):
-        global SAVE_IMAGE
-        SAVE_IMAGE = not SAVE_IMAGE
+        self.save_image = not self.save_image
 
 
     def on_mode_select(self, event):
-        global MODE
         selected_mode = self.mode_var.get()
         if selected_mode == 'AprilTag':
-             MODE = "apriltag"
+             self.mode = "apriltag_image"
         elif selected_mode == 'Processed':
-            MODE = "processed_image"
+            self.mode = "processed_image"
         elif selected_mode == 'Raw':
-            MODE = "raw_image"
+            self.mode = "raw_image"
         elif selected_mode == 'Headless Piece Location':
-            MODE = "find_piece"
-
+            self.mode = "find_piece"
+        elif selected_mode == 'Headless AprilTag Detection':
+            self.mode = "apriltag_headless"
 
     def on_image_click(self, event):
         if self.current_pil_image is None:
-            print("No image loaded.")
+            self.insert_text("No image loaded.\n")
             return
 
-        display_width, display_height = 800, 600
-        original_width, original_height = self.current_pil_image.size  # Use the stored PIL Image object
+        # Get the dimensions of the displayed image
+        display_width = self.image_label.winfo_width()
+        display_height = self.image_label.winfo_height()
 
+        # Get the dimensions of the original image
+        original_width, original_height = self.current_pil_image.size
+
+        # Calculate the aspect ratio of the displayed image and the original image
         width_ratio = original_width / display_width
         height_ratio = original_height / display_height
 
-        original_x = int(event.x * width_ratio)
-        original_y = int(event.y * height_ratio)
+        # Determine the scaling factor based on the aspect ratio
+        if width_ratio > height_ratio:
+            scale_factor = width_ratio
+        else:
+            scale_factor = height_ratio
 
+        # Calculate the coordinates in the original image
+        original_x = int(event.x * scale_factor)
+        original_y = int(event.y * scale_factor)
+
+        # Ensure the coordinates are within the bounds of the original image
+        original_x = min(max(original_x, 0), original_width - 1)
+        original_y = min(max(original_y, 0), original_height - 1)
+
+        # Get the pixel color at the calculated coordinates
         pixel = self.current_pil_image.getpixel((original_x, original_y))
 
+        # Update the sliders with the pixel color values
         self.red_slider.set(pixel[0])
         self.green_slider.set(pixel[1])
         self.blue_slider.set(pixel[2])
@@ -426,12 +425,10 @@ class App(tk.Tk):
             self.blue_slider.set(self.color_list[self.active_color]["blue"])
             self.difference_slider.set(self.color_list[self.active_color]["difference"])
             self.blur_slider.set(self.color_list[self.active_color]["blur"])
-            self.brightness_slider.set(self.color_list[self.active_color]["brightness"])
-            self.contrast_slider.set(self.color_list[self.active_color]["contrast"])
 
             self.slider_update()
         except Exception as e:
-            print(f"Error loading parameters: {e}")
+            self.insert_text(f"Error loading parameters: {e}\n")
 
     def save_parameters(self):
         # Open save file dialog to let the user name and choose where to save the file
@@ -450,8 +447,6 @@ class App(tk.Tk):
             "blue": self.blue_slider.get(),
             "blur": self.blur_slider.get(),
             "difference": self.difference_slider.get(),
-            "brightness": self.brightness_slider.get(),
-            "contrast": self.contrast_slider.get()
         }
         self.color_list[self.active_color] = values
 
@@ -459,10 +454,10 @@ class App(tk.Tk):
         try:
             with open(file_path, 'w') as file:
                 json.dump(self.color_list, file, indent=4)
-            print(f"Parameters saved to {file_path}")
+            self.insert_text(f"Parameters saved to {file_path}\n")
         except Exception as e:
-            print(f"Error saving parameters: {e}")
-    
+            self.insert_text(f"Error saving parameters: {e}\n")
+
     def add_color(self):
         # Add a new color configuration
         new_color_name = f"Color {len(self.color_list) + 1}"
@@ -480,13 +475,13 @@ class App(tk.Tk):
 
     def load_all_colors_from_json(self):
         try:
-            with open('../Coprocessor/params.json', 'r') as f:
+            with open('params.json', 'r') as f:
                 self.color_list = json.load(f)
                 # Update the combobox values based on loaded colors
                 self.update_combobox()
         except FileNotFoundError:
-            print("params.json not found. Loading default color.")
-            self.color_list = [{"red": 0, "green": 0, "blue": 0, "difference": 50, "blur": 0, "brightness": 40, "contrast": 50}]
+            self.insert_text("params.json not found. Loading default color.\n")
+            self.color_list = [{"red": 0, "green": 0, "blue": 0, "difference": 50, "blur": 0}]
             self.update_combobox()
 
     def update_combobox(self):
@@ -524,52 +519,73 @@ class App(tk.Tk):
         self.difference_slider.configure(command=self.slider_update)
         self.blur_slider.configure(command=self.slider_update)
 
-    def on_close(self):
-        # Stop the asyncio event loop
-        #asyncio.get_event_loop().stop()
-        # Exit the program
-        sys.exit()
 
+    async def websocket_client(self):
+        try:
+            async with websockets.connect(f"ws://{self.raspberry_pi_ip}:{self.port}", ping_timeout=None,
+                                          ping_interval=None) as websocket:
+                self.insert_text(f"Connected to {self.raspberry_pi_ip}:{self.port}\n")
+                current_ip = self.raspberry_pi_ip
+                current_port = self.port
 
-async def websocket_client():
-    try:
-        timeout = 10 # Set your desired timeout period here (in seconds)
-        async with websockets.connect(f"ws://{RASPBERRY_PI_IP}:{PORT}", ping_timeout=None,
-                                      ping_interval=None) as websocket:
-            while True:
-                if app.command is not None:
-                    await websocket.send(app.command)
-                    app.command = None
-                    continue
-                await websocket.send(MODE)
-
-                start = time.time()
-                response = await websocket.recv()
+                await websocket.send("info")
+                info_response = await websocket.recv()
                 try:
-                    response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((480 // 4, 640 // 4, 3))
-                except Exception as e:
-                    print(f"Error converting image data: {e}")
-                    pass
-                # Update the image on the label
-                app.change_image(response, 1 / (time.time() - start))
+                    info_data = json.loads(info_response)
+                    camera_width = info_data.get("horizontal_resolution_pixels", 640)
+                    camera_height = info_data.get("vertical_resolution_pixels", 480)
+                    processing_scale = info_data.get("processing_scale", 4)
+                    self.insert_text(f"Camera resolution: {camera_width}x{camera_height}\n")
+                except json.JSONDecodeError:
+                    self.insert_text("Failed to decode camera info response.\n")
+                    camera_width = 640
+                    camera_height = 480
+                    processing_scale = 4
+                while True:
+                    if current_ip != self.raspberry_pi_ip or current_port != self.port:
+                        self.insert_text("IP or port changed. Restarting websocket connection...\n")
+                        break
 
-    except asyncio.CancelledError:
-        print("Websocket task was cancelled. Cleaning up...")
-        # Perform any necessary cleanup here
-    except websockets.exceptions.ConnectionClosedError as e:
-        print(f"Websocket connection closed unexpectedly: {e}")
-        # Handle connection closed error here
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        # Handle any other exceptions here
+                    if self.command is not None:
+                        await websocket.send(self.command)
+                        self.command = None
+                        continue
+                    await websocket.send(self.mode)
 
-def start_asyncio_event_loop():
-    asyncio.set_event_loop(asyncio.new_event_loop())
-    while True:
-        asyncio.get_event_loop().run_until_complete(websocket_client())
+                    start = time.time()
+                    response = await websocket.recv()
+                    try:
+                        response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((camera_height//processing_scale, camera_width//processing_scale, 3))
+                    except Exception as e:
+                        if 'str' not in str(e):
+                            self.insert_text(f"Failed to decode image: {e}\n")
+                        pass
+                    # Update the image on the label
+                    self.change_image(response, 1 / (time.time() - start))
+
+        except asyncio.CancelledError:
+            self.insert_text("Websocket task was cancelled. Cleaning up...\n")
+        except websockets.exceptions.ConnectionClosedError as e:
+            self.insert_text(f"Websocket connection closed unexpectedly: {e}\n")
+        except Exception as e:
+            if "Errno 10054" in str(e):
+                self.insert_text("Connection closed by the server.\n")
+            elif "Errno 10061" in str(e):
+                self.insert_text("Connection refused. Is the server running?\n")
+            elif "Errno 10049" in str(e):
+                self.insert_text("The requested address is not valid in this context. Is the IP address correct?\n")
+            elif "Errno 111" in str(e):
+                self.insert_text("Connection refused. Is the server running?\n")
+            else:
+                self.insert_text(f"An unexpected error occurred: {e}\n")
+
+    def start_asyncio_event_loop(self):
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        while True:
+            asyncio.get_event_loop().run_until_complete(self.websocket_client())
 
 if __name__ == "__main__":
     app = App()
-    asyncio_thread = threading.Thread(target=start_asyncio_event_loop)
+    asyncio_thread = threading.Thread(target=app.start_asyncio_event_loop)
     asyncio_thread.start()
     app.mainloop()

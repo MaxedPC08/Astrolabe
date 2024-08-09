@@ -2,7 +2,9 @@ import cv2
 import numpy as np
 import json
 from constants import (CAMERA_HORIZONTAL_RESOLUTION_PIXELS, CAMERA_VERTICAL_RESOLUTION_PIXELS, TILT_ANGLE_RADIANS,
-                    CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT)
+                       CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT)
+
+
 class Locater:
     """
     This class is used to find the object in an image. It is faster to use a class than just a function.
@@ -13,12 +15,13 @@ class Locater:
                  camera_horizontal_field_of_view_radians=CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS,
                  camera_vertical_field_of_view_radians=CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS):
         """
-        This function initializes the Locater class. It reads the parameters from the params.json file and sets the target color.
+        This function initializes the Locater class.
+        It reads the parameters from the params.json file and sets the target color.
         If there is no such file then it uses the default values. Please make sure that file exists.
         """
         self.active_color = 0
-        self.green_line = np.array([[0, 255, 0] for i in range(11)])
-        self.red_line = np.array([[0, 0, 255] for i in range(11)])
+        self.green_line = np.array([[0, 255, 0] for _ in range(11)])
+        self.red_line = np.array([[0, 0, 255] for _ in range(11)])
         try:
             with open('params.json', 'r') as f:
                 self.color_list = json.load(f)
@@ -51,18 +54,18 @@ class Locater:
         self.camera_horizontal_field_of_view_radians = camera_horizontal_field_of_view_radians
         self.camera_vertical_field_of_view_radians = camera_vertical_field_of_view_radians
 
-        self.res_corresp_horizontal = np.tan(self.camera_horizontal_field_of_view_radians / 2.0) / (self.camera_horizontal_resolution_pixels / 2.0)
-        self.res_corresp_vertical = np.tan(self.camera_vertical_field_of_view_radians / 2.0) / (self.camera_vertical_resolution_pixels / 2.0)
+        self.res_corresp_horizontal = (np.tan(self.camera_horizontal_field_of_view_radians / 2.0) /
+                                       (self.camera_horizontal_resolution_pixels / 2.0))
+        self.res_corresp_vertical = (np.tan(self.camera_vertical_field_of_view_radians / 2.0) /
+                                     (self.camera_vertical_resolution_pixels / 2.0))
         self.max_vertical_angle = self.camera_vertical_resolution_pixels * self.res_corresp_vertical
         self.max_horizontal_angle = self.camera_horizontal_resolution_pixels * self.res_corresp_horizontal
-
 
     def locate(self, image, blur=-1, dif=-1):
         """
         This function locates the object in the image. It uses the target color and the parameters to find the object.
         :param blur:
         :param dif:
-        :param red_val:
         :param image: Numpy array of the image
         :return: (ndarray, tuple, int) where the first is the processed image with crosshairs etc.,
         center is the center of the object (x, y), and width is the width of the object
@@ -91,9 +94,7 @@ class Locater:
             image = cv2.medianBlur(image, blur//2*2+1)"""
             image = cv2.bilateralFilter(image, blur, blur*2, blur//2)
 
-
         cols, rows = image.shape[:2]
-
 
         image = image.astype(np.float32)
 
@@ -101,7 +102,8 @@ class Locater:
         mask = np.zeros((cols + 2, rows + 2), np.uint8)
 
         # Perform the flood fill operation
-        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif], [dif, dif, dif])
+        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif],
+                                       [dif, dif, dif])
         image = image[:, :, 0].clip(-1, 0) * -1
 
         # Process the image and make it viewer - worthy
@@ -117,9 +119,7 @@ class Locater:
         image = image_copy * image[:, :, np.newaxis]
         image = image.astype(np.uint8)
 
-
         # draw a crosshair
-
         try:
             image[int(center[0]) - 5:int(center[0]) + 6, int(center[1])] = self.red_line
             image[int(center[0]), int(center[1]) - 5:int(center[1]) + 6] = self.red_line
@@ -136,7 +136,6 @@ class Locater:
         This function locates the object in the image. It uses the target color and the parameters to find the object.
         :param blur:
         :param dif:
-        :param red_val:
         :param image: Numpy array of the image
         :return: (ndarray, tuple, int) where the first is the processed image with crosshairs etc.,
         center is the center of the object (x, y), and width is the width of the object
@@ -169,7 +168,8 @@ class Locater:
         mask = np.zeros((cols + 2, rows + 2), np.uint8)
 
         # Perform the flood fill operation
-        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif], [dif, dif, dif])
+        _, image, _, _ = cv2.floodFill(image, mask, (y, x), new_color, [dif, dif, dif],
+                                       [dif, dif, dif])
         image = image[:, :, 0].clip(-1, 0) * -1
 
         # Process the image and make it viewer - worthy
@@ -187,11 +187,9 @@ class Locater:
         """
         This function calculates the location of the object in the image from the center and width.
         :param center: tuple of the center of the object (x, y)
-        :param width: int of the width of the object
         :return: tuple of the location of the object (x, y)
         """
-        #width = width * RES_CORRESP_HORIZONTAL
-        # distance = OBJECT_WIDTH / (2 * np.tan(width / 2)) # This is the distance in inches calcualted with the width of the image
+
         angle_radians_horiz = ((center[1] * self.res_corresp_horizontal) -
                                self.camera_horizontal_field_of_view_radians * 0.5)
 
