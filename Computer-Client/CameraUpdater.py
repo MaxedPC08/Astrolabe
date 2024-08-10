@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import Text
+from tkinter import font
 import json
 import asyncio
 import websockets
@@ -59,6 +60,9 @@ class CameraApp(tk.Tk):
         # Add a text box for server response
         self.response_text = Text(self, height=10, wrap='word')
         self.response_text.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        custom_font = font.Font(family="courier", size=12)
+        self.response_text.configure(font=custom_font)
 
         # Load parameters from file
         self.load_parameters()

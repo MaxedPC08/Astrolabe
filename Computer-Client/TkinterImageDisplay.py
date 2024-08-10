@@ -4,12 +4,12 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk, filedialog
+from tkinter import font
 from PIL import Image, ImageTk
 import numpy as np
 import os
 import json
-import sys
-import cv2
+import struct
 
 
 class App(tk.Tk):
@@ -65,20 +65,22 @@ class App(tk.Tk):
 
 
         ip_port_frame = tk.Frame(self.frame_right)
-        ip_port_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
+        ip_port_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
 
-        tk.Label(ip_port_frame, text="IP Address:").pack(side=tk.LEFT, padx=5, pady=10)
+        ip_label = tk.Label(ip_port_frame, text="IP Address:")
+        ip_label.pack(side=tk.LEFT, padx=5, pady=5)
         self.ip_entry = ttk.Entry(ip_port_frame)
-        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=10)
+        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
         self.ip_entry.insert(0, self.raspberry_pi_ip)
 
-        tk.Label(ip_port_frame, text="Port:").pack(side=tk.LEFT, padx=5, pady=10)
+        port_label = tk.Label(ip_port_frame, text="Port:")
+        port_label.pack(side=tk.LEFT, padx=5, pady=5)
         self.port_entry = ttk.Entry(ip_port_frame)
-        self.port_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=10)
+        self.port_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
         self.port_entry.insert(0, str(self.port))
 
         self.update_ip_button = ttk.Button(ip_port_frame, text="Update IP and Port", command=self.update_ip)
-        self.update_ip_button.pack(side=tk.LEFT, fill=tk.X, padx=5, pady=10)
+        self.update_ip_button.pack(side=tk.LEFT, fill=tk.X, padx=5, pady=5)
 
         color_button_frame = tk.Frame(self.frame_right)
         color_button_frame.pack(side=tk.TOP, fill=tk.X)
@@ -139,6 +141,7 @@ class App(tk.Tk):
 
         self.text_box = tk.Text(self.frame_right, height=10, width=30)
 
+
         # Pack sliders and toggles in the right frame
         self.red_slider.pack()
         self.green_slider.pack()
@@ -149,6 +152,8 @@ class App(tk.Tk):
         self.text_box.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
         self.text_box.bind("<<Modified>>", lambda event: self.scroll_to_bottom())
         self.text_box.bind("<KeyRelease>", lambda event: self.scroll_to_bottom())
+        custom_font = font.Font(family="courier", size=12)
+        self.text_box.configure(font=custom_font)
 
         self.image_label.bind("<Button-1>", self.on_image_click)
 
@@ -193,7 +198,7 @@ class App(tk.Tk):
         buttons_frame.configure(bg=dark_frame_color)
         color_button_frame.configure(bg=dark_frame_color)
         self.frame_separator.configure(bg=dark_background_color)  # Separator might remain the same or adjust as needed
-
+        ip_port_frame.configure(bg=dark_frame_color)
         # Labels
         self.image_label.configure(
             bg=dark_frame_color)  # Assuming you want the image background to be dark when no image is displayed
@@ -222,9 +227,6 @@ class App(tk.Tk):
                         selectcolor=dark_frame_color, borderwidth=0)
         self.save_image_toggle.configure(style="Custom.TCheckbutton")
 
-
-        style = ttk.Style()
-
         style.configure("Dark.TButton", foreground=light_text_color, background=dark_frame_color, borderwidth=1,
                         focusthickness=0, focuscolor='none')
         style.map("Dark.TButton",
@@ -241,6 +243,13 @@ class App(tk.Tk):
                   selectbackground=[("active", dark_frame_color)],
                   selectforeground=[("active", light_text_color)])
 
+        style.configure("Dark.TEntry", fieldbackground=dark_frame_color, background=dark_background_color,
+                        foreground=light_text_color)
+        style.map("Dark.TEntry",
+                    fieldbackground=[("active", dark_frame_color)],
+                    background=[("active", dark_background_color)],
+                    foreground=[("active", light_text_color)])
+
         # Apply the custom styles to the buttons and combobox
         self.load_params_button.configure(style="Dark.TButton")
         self.save_params_button.configure(style="Dark.TButton")
@@ -249,6 +258,12 @@ class App(tk.Tk):
         self.color_combobox.configure(style="Dark.TCombobox")
         self.mode_combobox.configure(style="Dark.TCombobox")
         self.text_box.configure(bg=dark_frame_color, fg=light_text_color, insertbackground=light_text_color)
+        self.ip_entry.configure(style="Dark.TEntry")
+        self.port_entry.configure(style="Dark.TEntry")
+        self.update_ip_button.configure(style="Dark.TButton")
+        ip_label.configure(fg=light_text_color, bg=dark_frame_color)
+        port_label.configure(fg=light_text_color, bg=dark_frame_color)
+
 
         # Step 2: Create functions to change the style on hover
         def on_enter(event):
@@ -555,7 +570,9 @@ class App(tk.Tk):
                     start = time.time()
                     response = await websocket.recv()
                     try:
-                        response = np.asarray(np.frombuffer(response, dtype=np.uint8)).reshape((camera_height//processing_scale, camera_width//processing_scale, 3))
+                        response = np.frombuffer(response, dtype=np.uint8)
+                        response = np.asarray(response).reshape((camera_height//processing_scale,
+                                                                 camera_width//processing_scale, 3))
                     except Exception as e:
                         if 'str' not in str(e):
                             self.insert_text(f"Failed to decode image: {e}\n")
@@ -577,6 +594,7 @@ class App(tk.Tk):
             elif "Errno 111" in str(e):
                 self.insert_text("Connection refused. Is the server running?\n")
             else:
+                raise e
                 self.insert_text(f"An unexpected error occurred: {e}\n")
 
     def start_asyncio_event_loop(self):
