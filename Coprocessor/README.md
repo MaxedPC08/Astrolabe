@@ -6,11 +6,12 @@ To install all dependencies for the coprocessor, clone this repository on the co
 ```pip install -r requirements.txt```
 
 
-## Usage
-To generate the parameters, run the Finetuner.py script on your computer. This script will open a window with the last saved image from the camera. Use the sliders to adjust the parameters until the object is detected correctly.
-Make sure to copy the params.txt file to the coprocessor after generating the parameters.
-To view the live stream of the camera, run the TkinterImageDisplay.py script on your computer. This script will open a window with the live stream of the camera. 
-The RaspberryPiMain.py script should be run on the coprocessor. This script will connect to the computer and send the processed image to the computer. The computer will then display the processed image.
-The coprocessor adds all the crosshairs and the highlighted object to the image. The computer only displays the processed image.
-Set the SAVE_IMAGE variable in TkinterImageDisplay to True to save the image to the computer for tuning. Set it to False to skip saving the image.
-Set the PROCESS_IMAGE variable in TkinterImageDisplay to True to process the image. Set it to False to skip processing the image. Use it in this mode for tuning.
+## Overview
+The ----vision processing software---- has two ends, a server, usually the coprocessor, and a client, usually the driver 
+station. The server is responsible for processing the image and sending the results to the client. The client is 
+responsible for interacting with the server in a UI. The server and client communicate over an ethernet connection. 
+The server is started by running the `main.py` script in the `Coprocessor` directory. The client is started by running 
+the `main.py` script in the `Client` directory. The server hosts a websocket server for each camera connected to it,
+starting with port 50000. Each camera has its own process and handles requests independently. There is no main socket
+to send general commands to. The client will connect to the server and send bash-style commands to the server. The 
+server will then reply with either a bytes object or a json string.

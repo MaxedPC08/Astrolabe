@@ -288,7 +288,7 @@ library used by ctypes.
             extension = '.so'
 
 
-        filename = "/usr/local/lib/libapriltag.so"
+        filename = f"/usr/local/lib/libapriltag{extension}"
 
         self.libc = None
         self.tag_detector = None

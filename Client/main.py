@@ -315,11 +315,11 @@ class App(tk.Tk):
         self.text_box = tk.Text(self.frame_right, height=10, width=10, wrap='word')
 
         # Pack sliders and toggles in the right frame
-        self.red_slider.pack(fill=tk.X, expand=True, padx=5)
-        self.green_slider.pack(fill=tk.X, expand=True, padx=5)
-        self.blue_slider.pack(fill=tk.X, expand=True, padx=5)
-        self.difference_slider.pack(fill=tk.X, expand=True, padx=5)
-        self.blur_slider.pack(fill=tk.X, expand=True, padx=5)
+        self.red_slider.pack(fill=tk.X, padx=5)
+        self.green_slider.pack(fill=tk.X, padx=5)
+        self.blue_slider.pack(fill=tk.X, padx=5)
+        self.difference_slider.pack(fill=tk.X, padx=5)
+        self.blur_slider.pack(fill=tk.X, padx=5)
         self.save_image_toggle.pack()
         self.text_box.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
         self.text_box.bind("<<Modified>>", lambda event: self.scroll_to_bottom())
@@ -408,7 +408,7 @@ class App(tk.Tk):
                   selectforeground=[("active", light_text_color)])
 
         style.configure("Dark.TEntry", fieldbackground=dark_frame_color, background=dark_background_color,
-                        foreground=light_text_color)
+                        foreground=light_text_color, insertcolor=light_text_color)
         style.map("Dark.TEntry",
                   fieldbackground=[("active", dark_frame_color)],
                   background=[("active", dark_background_color)],

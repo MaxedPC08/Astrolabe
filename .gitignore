@@ -163,6 +163,6 @@ cython_debug/
 
 # Project specific
 *.jpg
-Computer-Client/Presets/
+Client/Presets/
 .idea/
 .vscode/
