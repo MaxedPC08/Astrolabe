@@ -1,77 +1,77 @@
-import asyncio
-import websockets
-import socket
-import inspect
-from Coprocessor.functional import functionDict
-
-# Get the IP address of the Ethernet interface
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect(("8.8.8.8", 80))
-ethernet_ip = s.getsockname()[0]
-s.close()
+from Server import Server
+import cv2
+import os
+import psutil
+import multiprocessing
+import subprocess
+import time
 
 
-# WebSocket server
-async def websocket_server(websocket, path):
-    """
-    This function is the main function for the WebSocket server. It receives images from the client and sends them back.
-    :param websocket:
-    :param path:
-    :return:
-    """
-    async for message in websocket:
-        split_message = message.split(" -")
-        args = {}
-        if len(split_message) > 1:
-            for i, arg in enumerate(split_message[1:]):
-                try:
-                    parameter, val = arg.split("=")
-                except ValueError as e:
-                    message = str(e)
-                    if "too many values to unpack" in message:
-                        # Handle the case where there are too many values
-                        await websocket.send(f"""Error: Too many values to unpack.
-                        Please make sure that the parameters are the format "parameter1=value1 -parameter2=value2".
-                        Do not include spaces between the parameter and the value, and do not include equal signs in the value.""")
-                        continue
-                    elif "too few values to unpack" in message:
-                        # Handle the case where there are too few values
-                        await websocket.send(f"""Warning: Too few values to unpack. We are setting this parameter to true.
-                                                Please make sure that the parameters are the format "parameter1=value1 -parameter2=value2".
-                                                Do not include spaces between the parameter and the value, and make sure that all parameters have values.""")
-                        parameter = arg
-                        val = True
-                    else:
-                        # Handle other ValueError cases or re-raise
-                        raise
+def delete_and_reload_camera(device, driver='uvcvideo'):
+    # Release the camera if it is currently in use
+    cap = cv2.VideoCapture(device)
+    if cap.isOpened():
+        cap.release()
 
-                args[parameter] = val
+    # Delete the camera device file
+    delete_command = f"sudo rm {device}"
+    try:
+        subprocess.run(delete_command, shell=True, check=True)
+        print(f"Camera device {device} has been deleted.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to delete camera device {device}: {e}")
 
-        try:
-            if inspect.iscoroutinefunction(functionDict[split_message[0]]):
-                await functionDict[split_message[0]](websocket, **args)
-            else:
-                functionDict[split_message[0]](**args)
-        except KeyError as e:
-            print(f"Error: Function {split_message[0]} not found. Please make sure that the function name is spelled correctly and that it exists. The function names are case-sensitive.")
-            await websocket.send(f"Error: Function {split_message[0]} not found."
-                                 f" Please make sure that the function name is spelled correctly and that it exists."
-                                 f" The function names are case-sensitive.")
+    # Reload the camera driver
+    reload_command = f"sudo modprobe -r {driver} && sudo modprobe {driver}"
+    try:
+        subprocess.run(reload_command, shell=True, check=True)
+        print(f"Camera driver {driver} has been reloaded.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to reload camera driver {driver}: {e}")
 
-        #except TypeError as e:
-            """print(f"{e} when calling function {split_message[0]} with arguments {args}."
-                                 f" Please make sure that the function is called with the correct number of arguments.")
-            await websocket.send(f"{e} when calling function {split_message[0]} with arguments {args}."
-                                 f" Please make sure that the function is called with the correct number of arguments.")"""
-        except ValueError as e:
-            print(f"Error: {e}")
-            await websocket.send(f"{e}")
+
+def find_camera_index():
+    video_devices = [f"/dev/{device}" for device in os.listdir("/dev") if device.startswith("video")]
+    cam_list = []
+    for i, device in enumerate(video_devices):
+        start = time.time()
+        temp_cam = cv2.VideoCapture(device)
+        temp_cam.release()
+
+        cap = cv2.VideoCapture(device)
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        ret, _ = cap.read()
+
+        if not ret and not cap.isOpened() and time.time() - start > 0.1:
+            delete_and_reload_camera(device)
+            cap = cv2.VideoCapture(device)
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            ret, _ = cap.read()
+
+        if cap.isOpened():
+            ret, _ = cap.read()
+            if ret:
+                cam_list.append(device)
+            cap.release()
+    return cam_list
+
+
+def start_server_with_affinity(server, cpu_core):
+    p = multiprocessing.Process(target=server.start_server)
+    p.start()
+    psutil.Process(p.pid).cpu_affinity([cpu_core])
+    return p
 
 
 if __name__ == "__main__":
-    start_server = websockets.serve(websocket_server, ethernet_ip, 8765, ping_timeout=None, ping_interval=None)
+    camera_indexes = find_camera_index()
+    print(f"Found {len(camera_indexes)} camera(s)")
+    servers = []
+    processes = []
+    for i, camera_index in enumerate(camera_indexes):
+        server = Server(camera_index, 50000 + i)
+        servers.append(server)
+        processes.append(start_server_with_affinity(server, i % os.cpu_count()))
 
-    print(f"WebSocket server listening on {ethernet_ip}:8765")
-
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
+    for p in processes:
+        p.join()
