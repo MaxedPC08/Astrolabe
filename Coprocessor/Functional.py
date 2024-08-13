@@ -93,7 +93,7 @@ def int_we(value, name):
 
 
 class FunctionalObject:
-    def __init__(self, name):
+    def __init__(self, name, serial_number):
         # This dictionary contains all the commands availible on the coprocessor. If you add a function, make sure to
         # add it to this dictionary.
         self.functionDict = {
@@ -103,8 +103,7 @@ class FunctionalObject:
             "ri": self.raw_image,
             "switch_color": self.switch_color,
             "sc": self.switch_color,
-            "save_params": self.save_params,
-            "sp": self.save_params,
+            "color": self.save_color,
             "apriltag_image": self.apriltag_image,
             "ai": self.apriltag_image,
             "find_piece": self.find_piece,
@@ -117,20 +116,21 @@ class FunctionalObject:
         }
         self.detector = Detector()
         self.name = name
+        self.serial_number = serial_number
 
         # load the camera data from the JSON file
         try:
             with open('camera-params.json', 'r') as f:
                 camera_params = json.load(f)
-            self.horizontal_focal_length = camera_params[name]["horizontal_focal_length"]
-            self.vertical_focal_length = camera_params[name]["vertical_focal_length"]
-            self.camera_height = camera_params[name]["camera_height"]
-            self.camera_horizontal_resolution_pixels = camera_params[name]["horizontal_resolution_pixels"]
-            self.camera_vertical_resolution_pixels = camera_params[name]["vertical_resolution_pixels"]
-            self.tilt_angle_radians = camera_params[name]["tilt_angle_radians"]
-            self.horizontal_field_of_view = camera_params[name]["horizontal_field_of_view_radians"]
-            self.vertical_field_of_view = camera_params[name]["vertical_field_of_view_radians"]
-            self.processing_scale = camera_params[name]["processing_scale"]
+            self.horizontal_focal_length = camera_params[serial_number]["horizontal_focal_length"]
+            self.vertical_focal_length = camera_params[serial_number]["vertical_focal_length"]
+            self.camera_height = camera_params[serial_number]["camera_height"]
+            self.camera_horizontal_resolution_pixels = camera_params[serial_number]["horizontal_resolution_pixels"]
+            self.camera_vertical_resolution_pixels = camera_params[serial_number]["vertical_resolution_pixels"]
+            self.tilt_angle_radians = camera_params[serial_number]["tilt_angle_radians"]
+            self.horizontal_field_of_view = camera_params[serial_number]["horizontal_field_of_view_radians"]
+            self.vertical_field_of_view = camera_params[serial_number]["vertical_field_of_view_radians"]
+            self.processing_scale = camera_params[serial_number]["processing_scale"]
 
         except json.JSONDecodeError:
             print("camera-params.json not found. Using default values.")
@@ -143,7 +143,7 @@ class FunctionalObject:
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
             self.processing_scale = PROCESSING_SCALE
-            camera_params = {f"{name}": {"horizontal_focal_length": self.horizontal_focal_length,
+            camera_params = {f"{serial_number}": {"horizontal_focal_length": self.horizontal_focal_length,
                                          "vertical_focal_length": self.vertical_focal_length,
                                          "camera_height": self.camera_height,
                                          "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
@@ -170,7 +170,7 @@ class FunctionalObject:
             # Overwrite the parameters in the file with the defaults
             with open('camera-params.json', 'r') as f:
                 camera_params = json.loads(f.read())
-            camera_params[name] = {
+            camera_params[serial_number] = {
                 "horizontal_focal_length": self.horizontal_focal_length,
                 "vertical_focal_length": self.vertical_focal_length,
                 "camera_height": self.camera_height,
@@ -227,7 +227,7 @@ class FunctionalObject:
             img)  # Locate the object in the image.
         image_array = np.asarray(
             img).flatten()
-        await websocket.send(bytearray(image_array.tolist()))
+        await websocket.send(image_array.tobytes())
 
     async def raw_image(self, websocket):
         """
@@ -250,7 +250,7 @@ class FunctionalObject:
         image_array = np.asarray(img).flatten()
 
         # Send the image to the client
-        await websocket.send(bytearray(image_array.tolist()))
+        await websocket.send(image_array.tobytes())
 
     def switch_color(self, new_color=0):
         """
@@ -260,7 +260,7 @@ class FunctionalObject:
         """
         self.locater.active_color = min(int_we(new_color, "new_color"), len(self.locater.color_list) - 1)
 
-    def save_params(self, values):
+    def save_color(self, values):
         """
         Save the color list and active color to a JSON file.
         :param values:
@@ -310,7 +310,7 @@ class FunctionalObject:
 
         image_array = np.asarray(img)
 
-        await websocket.send(bytearray(image_array.tolist()))
+        await websocket.send(image_array.tobytes())
 
     async def apriltag_headless(self, websocket):
         """
@@ -402,7 +402,6 @@ class FunctionalObject:
             await websocket.send("{distance: " + str(dist) + ",\n angle: " + str(angle) + "}")
 
     async def set_camera_params(self, websocket, values):
-        print(values)
         json_vals = json.loads(values)
         try:
             self.horizontal_focal_length = json_vals["horizontal_focal_length"]
@@ -471,6 +470,7 @@ class FunctionalObject:
     async def info(self, websocket, h=False):
         info_dict = {
             "cam_name": self.name,
+            "identifier": self.serial_number,
             "horizontal_focal_length": self.horizontal_focal_length,
             "vertical_focal_length": self.vertical_focal_length,
             "height": self.camera_height,

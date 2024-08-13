@@ -58,13 +58,28 @@ class CameraUpdaterWidget(tk.Frame):
 
         self.create_input_field("Additional Flags:", "additional_flags", frame_color, text_color)
 
+        buttons_frame = tk.Frame(self, bg=frame_color)
+        buttons_frame.pack(fill=tk.X, pady=10)
         # Add a button to send the values
-        self.send_button = ttk.Button(self, text="Send Values", command=self.send_values, style="Dark.TButton")
-        self.send_button.pack(pady=10)
+        self.send_button = ttk.Button(buttons_frame, text="Send Values", command=self.send_values, style="Dark.TButton")
+        self.send_button.pack(pady=10, padx=10, side=tk.LEFT, fill=tk.X, expand=True)
 
-        custom_font = font.Font(family="courier", size=12)
+        self.info = ttk.Button(buttons_frame, text="Get Info", command=self.get_info, style="Dark.TButton")
+        self.info.pack(pady=10, padx=10, side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.hw = ttk.Button(buttons_frame, text="Get Hardware Info", command=self.get_hardware, style="Dark.TButton")
+        self.hw.pack(pady=10, padx=10, side=tk.LEFT, fill=tk.X, expand=True)
+
         # Load parameters from file
         self.load_parameters()
+
+    def get_info(self):
+        message = "info"
+        self.send_message(message)
+
+    def get_hardware(self):
+        message = "info -h=True"
+        self.send_message(message)
 
     def create_input_field(self, label_text, var_name, bg_color, fg_color):
         frame = tk.Frame(self)
@@ -524,7 +539,7 @@ class App(tk.Tk):
         temp = self.color_list.copy()
         temp.append(self.active_color)
 
-        self.command = f"sp -values={json.dumps(temp)}"
+        self.command = f"color -values={json.dumps(temp)}"
 
     def save_image_toggle_func(self):
         self.save_image = not self.save_image
@@ -540,7 +555,7 @@ class App(tk.Tk):
         elif selected_mode == 'Headless Piece Location':
             self.mode = "find_piece"
         elif selected_mode == 'Headless AprilTag Detection':
-            self.mode = "apriltag_headless"
+            self.mode = "at"
 
     def on_image_click(self, event):
         if self.current_pil_image is None:
@@ -645,7 +660,7 @@ class App(tk.Tk):
     def delete_color(self):
         # Delete the selected color configuration
         current_index = self.color_combobox.current()
-        if current_index >= 0:
+        if current_index >= 0 and len(self.color_list) > 1:
             del self.color_list[current_index]
             self.update_combobox()
             self.color_combobox.current(len(self.color_list) - 1)

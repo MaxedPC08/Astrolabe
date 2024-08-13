@@ -1,11 +1,6 @@
 import numpy as np
 import cv2
 
-# This file contains all the default values for the constants used in the program. These values can be changed by the
-# user in the GUI. The values are used in the Locater class to calculate the distance to the object in the image, and
-# the apriltag class to calculate the pose of the apriltag in the image. It also contains a dictionary of the cv2
-# properties that can be changed in the GUI.
-
 CAMERA_HORIZONTAL_RESOLUTION_PIXELS = 640  # This is the resolution of the input image, not necessarily the camera.
 CAMERA_VERTICAL_RESOLUTION_PIXELS = 480  # This is the resolution of the input image, not necessarily the camera.
 PROCESSING_SCALE = 4
@@ -14,17 +9,16 @@ TILT_ANGLE_RADIANS = 2*np.pi/6-0.1  # This is the tilt of the camera. 0 is looki
 CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS = 68 * np.pi / 180  # This is the field of view of the camera horizontally
 CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS = 51 * np.pi / 180  # This is the field of view of the camera vertically
 CAMERA_HEIGHT = 30  # This is the height of the camera in whatever units you want the distance to be calculated in
-# Default is cm
 
-APRIL_TAG_WIDTH = 0.155  # This is the width of the April tag in the desired unit. Default is meters.
-APRIL_TAG_HEIGHT = 0.155  # This is the height of the April tag in the desired unit. Default is meters.
+APRIL_TAG_WIDTH = 0.155
+APRIL_TAG_HEIGHT = 0.155
 
-
-# Calculate the focal lengths from the other information.
 HORIZONTAL_FOCAL_LENGTH = ((CAMERA_HORIZONTAL_RESOLUTION_PIXELS / 2) /
                            np.tan(CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS / 2))
-
 VERTICAL_FOCAL_LENGTH = (CAMERA_VERTICAL_RESOLUTION_PIXELS / 2) / np.tan(CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS / 2)
+AVG_FOCAL_LENGTH = (HORIZONTAL_FOCAL_LENGTH + VERTICAL_FOCAL_LENGTH) / 2
+
+cv2.CAP_PROP_APERTURE
 
 cv2_props_dict = {
     "CAP_PROP_APERTURE": cv2.CAP_PROP_APERTURE,

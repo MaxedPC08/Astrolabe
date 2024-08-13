@@ -95,7 +95,7 @@ class Locater:
         if blur > 0:
             """image = cv2.blur(image, (blur, blur))
             image = cv2.medianBlur(image, blur//2*2+1)"""
-            image = cv2.bilateralFilter(image, blur, blur*2, blur//2)
+            image = cv2.bilateralFilter(image, int(blur), int(blur)*2, int(blur)//2)
 
         cols, rows = image.shape[:2]
 
@@ -161,7 +161,7 @@ class Locater:
         x, y = np.unravel_index(np.argmin(array), array.shape)
 
         if blur > 0:
-            image = cv2.bilateralFilter(image, blur, blur*2, blur//2)
+            image = cv2.bilateralFilter(image, int(blur), int(blur)*2, int(blur)//2)
 
         cols, rows = image.shape[:2]
 

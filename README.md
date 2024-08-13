@@ -10,6 +10,12 @@ handles requests independently. There is no main socketto send general commands 
 server and send bash-style commands to the server. The server will then reply with either a bytes object or a json 
 string.
 
+## Features
+* The server can process images from any number of cameras, limited only by the hardware it is running on.
+* Full, color based object detection and location calculation.
+* AprilTag detection and location, pose, and direction calculation.
+* Websocket communication between the server and the client.
+
 ## Why FRSee?
 * FRSee is a vision processing software that is designed to be easy to use and easy to understand.
   * The client is built to be intuitive for anyone to use, even non-programmers.
