@@ -3,7 +3,7 @@
 Install the required dependencies by running `pip install -r requirements.txt` in the `Coprocessor` directory. Also, 
 install [this apriltag library](https://github.com/swatbotics/apriltag) by Matt Zucker in the `Coprocessor` directory. Follow all 
 the instructions in the README of the apriltag library to install it, including installing it system-wide. We 
-*highly* recommend installing FRSee in a virtual environment to avoid conflicts with other python packages.
+*highly* recommend installing Astrolabe in a virtual environment to avoid conflicts with other python packages.
 
 
 ## Overview

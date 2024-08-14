@@ -20,8 +20,8 @@ sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
 
 # Clone the repository
-git clone https://github.com/DroneDude1/FYRE-FRSee.git
-cd FYRE-FRSee || exit
+git clone https://github.com/DroneDude1/Astrolabe.git
+cd Astrolabe || exit
 
 # Delete all items except the Coprocessor directory
 find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
