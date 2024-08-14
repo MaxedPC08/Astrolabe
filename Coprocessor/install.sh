@@ -7,6 +7,9 @@ sudo apt-get install -y git
 # Install prerequisites for adding a new Python version
 sudo apt-get install -y software-properties-common
 
+# Install library for the RPI camera
+sudo apt install -y python3-picamera2 --no-install-recommends # ending flag indicates not to install GUI packages
+
 # Add the deadsnakes PPA (contains newer Python versions)
 sudo add-apt-repository ppa:deadsnakes/ppa
 
