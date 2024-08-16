@@ -1,5 +1,4 @@
 from Server import Server
-# from picamera2 import Picamera2 will write when I have a chance on my pi 5
 import os
 import psutil
 import multiprocessing

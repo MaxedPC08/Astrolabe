@@ -97,6 +97,7 @@ class Server:
         except websockets.exceptions.ConnectionClosedError as e:
             print(f"Connection closed with error: {e}")
         except Exception as e:
+            await websocket.send('{"error" : "' + f"An error occurred: {e}" + '"}')
             print(f"An error occurred: {e}")
         finally:
             await websocket.close()

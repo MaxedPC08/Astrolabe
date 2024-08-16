@@ -101,17 +101,17 @@ class FunctionalObject:
             "pi": self.processed_image,
             "raw_image": self.raw_image,
             "ri": self.raw_image,
+            "apriltag_image": self.apriltag_image,
+            "ai": self.apriltag_image,
             "switch_color": self.switch_color,
             "sc": self.switch_color,
             "color": self.save_color,
-            "apriltag_image": self.apriltag_image,
-            "ai": self.apriltag_image,
-            "find_piece": self.find_piece,
-            "fp": self.find_piece,
-            "apriltag_headless": self.apriltag_headless,
-            "at": self.apriltag_headless,
             "set_camera_params": self.set_camera_params,
             "scp": self.set_camera_params,
+            "find_piece": self.find_piece,
+            "fp": self.find_piece,
+            "find_apriltag": self.apriltag_headless,
+            "fa": self.apriltag_headless,
             "info": self.info,
         }
         self.detector = Detector()
@@ -217,16 +217,19 @@ class FunctionalObject:
             self.camera = cv2.VideoCapture(self.name)
             await websocket.send("Failed to capture image")
             return
+        try:
+            img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Resize the image to the processing scale to speed up processing
-        img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                               self.camera_vertical_resolution_pixels // self.processing_scale))
-        img, _, _ = self.locater.locate(
-            img)  # Locate the object in the image.
-        image_array = np.asarray(
-            img).flatten()
+            # Resize the image to the processing scale to speed up processing
+            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
+                                   self.camera_vertical_resolution_pixels // self.processing_scale))
+            img, _, _ = self.locater.locate(
+                img)  # Locate the object in the image.
+            image_array = np.asarray(
+                img).flatten()
+        except Exception as e:
+            await websocket.send('{"error": "' + str(e) + '"}')
+            return
         await websocket.send(image_array.tobytes())
 
     async def raw_image(self, websocket):
@@ -244,36 +247,50 @@ class FunctionalObject:
             return
 
         # Convert the frame to RGB for visualization and resize it to the processing scale
-        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                               self.camera_vertical_resolution_pixels // self.processing_scale))
-        image_array = np.asarray(img).flatten()
+        try:
+            img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
+                                   self.camera_vertical_resolution_pixels // self.processing_scale))
+            image_array = np.asarray(img).flatten()
+        except Exception as e:
+            await websocket.send('{"error": "' + str(e) + '"}')
+            return
 
         # Send the image to the client
         await websocket.send(image_array.tobytes())
 
-    def switch_color(self, new_color=0):
+    async def switch_color(self, websocket, new_color=0):
         """
         Change the active color in the Locater object.
         :param new_color:
         :return:
         """
-        self.locater.active_color = min(int_we(new_color, "new_color"), len(self.locater.color_list) - 1)
+        try:
+            self.locater.active_color = min(int_we(new_color, "new_color"), len(self.locater.color_list) - 1)
+        except Exception as e:
+            await websocket.send('{"error": "' + str(e) + '"}')
+            return
+        await self.info(websocket)
 
-    def save_color(self, values):
+    async def save_color(self, websocket, values):
         """
         Save the color list and active color to a JSON file.
         :param values:
         :return:
         """
-        # Get Values
-        json_vals = json.loads(values)
-        self.locater.color_list = json_vals[:-1]
-        self.locater.active_color = json_vals[-1]
+        try:
+            # Get Values
+            json_vals = json.loads(values)
+            self.locater.color_list = json_vals[:-1]
+            self.locater.active_color = json_vals[-1]
 
-        # Save the color list to a JSON file
-        with open('params.json', 'w') as f:
-            json.dump(self.locater.color_list, f, indent=4)
+            # Save the color list to a JSON file
+            with open('params.json', 'w') as f:
+                json.dump(self.locater.color_list, f, indent=4)
+        except Exception as e:
+            await websocket.send('{"error": ' + str(e) + '}')
+            return
+        await self.info(websocket)
 
     async def apriltag_image(self, websocket):
         """
@@ -359,20 +376,20 @@ class FunctionalObject:
             horizontal_correspondant = (np.tan(self.horizontal_field_of_view / 2.0) /
                                        (self.camera_horizontal_resolution_pixels / 2.0))
 
-            angle_radians_horiz = ((tag["center"][1] * horizontal_correspondant) -
+            angle_radians_horiz = ((tag["center"][0] * horizontal_correspondant) -
                                    self.horizontal_field_of_view * 0.5)
 
             vertical_correspondant = (np.tan(self.vertical_field_of_view / 2.0) /
                                         (self.camera_vertical_resolution_pixels / 2.0))
             max_vertical_angle = self.camera_vertical_resolution_pixels / self.processing_scale * vertical_correspondant
 
-            angle_radians_vert = ((max_vertical_angle - tag["center"][0] * (np.tan(self.vertical_field_of_view / 2.0) /
+            angle_radians_vert = ((max_vertical_angle - tag["center"][1] * (np.tan(self.vertical_field_of_view / 2.0) /
                                      (self.camera_vertical_resolution_pixels / 2.0))) +
                                   self.tilt_angle_radians - self.vertical_field_of_view * 0.5)
 
             tag_list.append(
                 {"tag_id": tag["tag_id"], "position": pose_T.flatten().tolist(), "orientation": euler_angles.tolist(),
-                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": angle_radians_vert})
+                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": -angle_radians_vert})
 
         await websocket.send(json.dumps(tag_list))
 
@@ -396,10 +413,10 @@ class FunctionalObject:
         _, center, width = self.locater.locate_stripped(
             img)  # Locate the object in the image. Comment out this line if you don't want to process the image.
         if width == -1:
-            await websocket.send("{distance: -1,\n angle: -1}")
+            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1)}')
         else:
             dist, angle = self.locater.loc_from_center(center)
-            await websocket.send("{distance: " + str(dist) + ",\n angle: " + str(angle) + "}")
+            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + "}")
 
     async def set_camera_params(self, websocket, values):
         json_vals = json.loads(values)
@@ -467,7 +484,7 @@ class FunctionalObject:
             json.dump(values_dict, f, indent=4)
         await self.info(websocket)
 
-    async def info(self, websocket, h=False):
+    async def info(self, websocket, h=False, *args, **kwargs):
         info_dict = {
             "cam_name": self.name,
             "identifier": self.serial_number,

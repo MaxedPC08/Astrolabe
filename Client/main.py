@@ -555,7 +555,7 @@ class App(tk.Tk):
         elif selected_mode == 'Headless Piece Location':
             self.mode = "find_piece"
         elif selected_mode == 'Headless AprilTag Detection':
-            self.mode = "at"
+            self.mode = "fa"
 
     def on_image_click(self, event):
         if self.current_pil_image is None:
