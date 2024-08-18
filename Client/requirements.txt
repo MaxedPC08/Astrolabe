@@ -1,3 +1,10 @@
-opencv-python
+threading
+time
+tkinter
+pillow
 numpy
+json
+asyncio
 websockets
+os
+math
