@@ -329,7 +329,22 @@ class App(tk.Tk):
         self.green_slider.pack(fill=tk.X, padx=5)
         self.blue_slider.pack(fill=tk.X, padx=5)
         self.difference_slider.pack(fill=tk.X, padx=5)
-        self.blur_slider.pack(fill=tk.X, padx=5)
+        self.blur_slider.pack(fill=tk.X, padx=5)\
+
+        # Create a frame for the color display
+        color_display_frame = tk.Frame(self.frame_right, bg=dark_frame_color)
+        color_display_frame.pack(pady=10, padx=5, fill=tk.X)
+
+        # Create a label to display the current color
+        self.color_display_label = tk.Label(color_display_frame, text="Current Color", bg=dark_frame_color,
+                                            fg=light_text_color)
+        self.color_display_label.pack(side=tk.LEFT, padx=5)
+
+        # Create a canvas to show the current color
+        self.color_display_canvas = tk.Canvas(color_display_frame, width=50, height=20, bg=dark_frame_color,
+                                              highlightthickness=0)
+        self.color_display_canvas.pack(side=tk.LEFT, padx=5)
+
         self.save_image_toggle.pack()
         self.text_box.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
         self.text_box.bind("<<Modified>>", lambda event: self.scroll_to_bottom())
@@ -523,6 +538,8 @@ class App(tk.Tk):
         blue_value = self.blue_slider.get()
         difference_value = self.difference_slider.get()
         blur_value = self.blur_slider.get()
+        color_hex = f"#{int(red_value):02x}{int(green_value):02x}{int(blue_value):02x}"
+        self.color_display_canvas.configure(bg=color_hex)
 
         val_dict = {
             "red": red_value,
