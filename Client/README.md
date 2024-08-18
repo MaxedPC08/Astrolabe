@@ -22,4 +22,4 @@ All parameters are camera specific, but they will stay the same in the client un
 
 ### The Camera Settings Panel
 The camera settings panel is on the left side of the screen.
-![](/.readme-helpers/Left-panel.png)
+![](/readme-helpers/Left-panel.png)
