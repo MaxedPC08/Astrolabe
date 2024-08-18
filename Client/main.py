@@ -741,7 +741,8 @@ class App(tk.Tk):
                         await websocket.send(self.command)
                         self.command = None
                         continue
-                    await websocket.send(self.mode)
+                    else:
+                        await websocket.send(self.mode)
 
                     start = time.time()
                     response = await websocket.recv()
@@ -751,7 +752,15 @@ class App(tk.Tk):
                                                                  camera_width // processing_scale, 3))
                     except Exception as e:
                         if 'str' not in str(e):
+                            if "cannot reshape array of size" in str(e):
+                                self.command = "info"
                             self.insert_text(f"Failed to decode image: {e}\n")
+                        elif "cam_name" in response:
+                            # We recieved an info call. Set the camera height and processing scale.
+                            info_data = json.loads(response)
+                            camera_width = info_data.get("horizontal_resolution_pixels", 640)
+                            camera_height = info_data.get("vertical_resolution_pixels", 480)
+                            processing_scale = info_data.get("processing_scale", 4)
                         pass
                     # Update the image on the label
                     self.change_image(response, 1 / (time.time() - start))
@@ -770,7 +779,6 @@ class App(tk.Tk):
             elif "Errno 111" in str(e):
                 self.insert_text("Connection refused. Is the server running?\n")
             else:
-                raise e
                 self.insert_text(f"An unexpected error occurred: {e}\n")
 
     def start_asyncio_event_loop(self):

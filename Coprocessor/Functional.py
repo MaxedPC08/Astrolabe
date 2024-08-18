@@ -122,15 +122,15 @@ class FunctionalObject:
         try:
             with open('camera-params.json', 'r') as f:
                 camera_params = json.load(f)
-            self.horizontal_focal_length = camera_params[serial_number]["horizontal_focal_length"]
-            self.vertical_focal_length = camera_params[serial_number]["vertical_focal_length"]
-            self.camera_height = camera_params[serial_number]["camera_height"]
-            self.camera_horizontal_resolution_pixels = camera_params[serial_number]["horizontal_resolution_pixels"]
-            self.camera_vertical_resolution_pixels = camera_params[serial_number]["vertical_resolution_pixels"]
+            self.horizontal_focal_length = max(camera_params[serial_number]["horizontal_focal_length"], 0)
+            self.vertical_focal_length = max(camera_params[serial_number]["vertical_focal_length"], 0)
+            self.camera_height = max(camera_params[serial_number]["camera_height"], 0)
+            self.camera_horizontal_resolution_pixels = max(camera_params[serial_number]["horizontal_resolution_pixels"], 1)
+            self.camera_vertical_resolution_pixels = max(camera_params[serial_number]["vertical_resolution_pixels"], 1)
             self.tilt_angle_radians = camera_params[serial_number]["tilt_angle_radians"]
-            self.horizontal_field_of_view = camera_params[serial_number]["horizontal_field_of_view_radians"]
-            self.vertical_field_of_view = camera_params[serial_number]["vertical_field_of_view_radians"]
-            self.processing_scale = camera_params[serial_number]["processing_scale"]
+            self.horizontal_field_of_view = max(camera_params[serial_number]["horizontal_field_of_view_radians"], 0)
+            self.vertical_field_of_view = max(camera_params[serial_number]["vertical_field_of_view_radians"], 0)
+            self.processing_scale = max(camera_params[serial_number]["processing_scale"], 1)
 
         except json.JSONDecodeError:
             print("camera-params.json not found. Using default values.")
@@ -444,26 +444,25 @@ class FunctionalObject:
             "vertical_field_of_view_radians": self.vertical_field_of_view,
             "processing_scale": self.processing_scale
         }
-
-        for key, value in values_dict.items():
+        for key in values_dict.keys():
             try:
-                value = json_vals[key]
+                values_dict[key] = json_vals[key]
             except KeyError:
                 pass
 
         self.horizontal_focal_length = float_we(values_dict["horizontal_focal_length"], "horizontal_focal_length")
         self.vertical_focal_length = float_we(values_dict["vertical_focal_length"], "vertical_focal_length")
         self.camera_height = float_we(values_dict["height"], "height")
-        self.camera_horizontal_resolution_pixels = int_we(values_dict["horizontal_resolution_pixels"],
-                                                          "horizontal_resolution_pixels")
-        self.camera_vertical_resolution_pixels = int_we(values_dict["vertical_resolution_pixels"],
-                                                        "vertical_resolution_pixels")
+        self.camera_horizontal_resolution_pixels = max(int_we(values_dict["horizontal_resolution_pixels"],
+                                                          "horizontal_resolution_pixels"), 1)
+        self.camera_vertical_resolution_pixels = max(int_we(values_dict["vertical_resolution_pixels"],
+                                                        "vertical_resolution_pixels"), 1)
         self.tilt_angle_radians = float_we(values_dict["tilt_angle_radians"], "tilt_angle_radians")
-        self.horizontal_field_of_view = float_we(values_dict["horizontal_field_of_view_radians"],
-                                                 "horizontal_field_of_view_radians")
-        self.vertical_field_of_view = float_we(values_dict["vertical_field_of_view_radians"],
-                                               "vertical_field_of_view_radians")
-        self.processing_scale = int_we(values_dict["processing_scale"], "processing_scale")
+        self.horizontal_field_of_view = max(float_we(values_dict["horizontal_field_of_view_radians"],
+                                                 "horizontal_field_of_view_radians"), 1)
+        self.vertical_field_of_view = max(float_we(values_dict["vertical_field_of_view_radians"],
+                                               "vertical_field_of_view_radians"), 1)
+        self.processing_scale = max(int_we(values_dict["processing_scale"], "processing_scale"), 1)
 
         try:
             params_list = [[key, value] for key, value in json.loads(json_vals["additional_flags"]).items()]
@@ -480,8 +479,21 @@ class FunctionalObject:
                 await websocket.send('{"error": ' + str(e) + '}')
                 return
 
+        with open('camera-params.json', 'r') as f:
+            camera_params = json.loads(f.read())
+        camera_params[self.serial_number] = {
+            "horizontal_focal_length": self.horizontal_focal_length,
+            "vertical_focal_length": self.vertical_focal_length,
+            "camera_height": self.camera_height,
+            "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
+            "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
+            "tilt_angle_radians": self.tilt_angle_radians,
+            "horizontal_field_of_view_radians": self.horizontal_field_of_view,
+            "vertical_field_of_view_radians": self.vertical_field_of_view,
+            "processing_scale": self.processing_scale
+        }
         with open('camera-params.json', 'w') as f:
-            json.dump(values_dict, f, indent=4)
+            json.dump(camera_params, f, indent=4)
         await self.info(websocket)
 
     async def info(self, websocket, h=False, *args, **kwargs):
