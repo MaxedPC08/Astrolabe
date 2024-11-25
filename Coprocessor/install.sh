@@ -23,7 +23,7 @@ sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
 
 # Clone the repository
-git clone https://github.com/DroneDude1/Astrolabe.git
+git clone https://github.com/MaxedPC08/Astrolabe.git
 cd Astrolabe || exit
 
 # Delete all items except the Coprocessor directory
@@ -40,4 +40,33 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j4
 sudo make install
 cd ../..
+
+# Create systemd service file
+SERVICE_FILE="/etc/systemd/system/myapp.service"
+sudo bash -c "cat > $SERVICE_FILE" <<EOL
+[Unit]
+Description=Run main.py at startup
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 $(pwd)/main.py
+WorkingDirectory=$(pwd)
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=$(whoami)
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Reload systemd manager configuration
+sudo systemctl daemon-reload
+
+# Enable the service to start on boot
+sudo systemctl enable myapp.service
+
+# Start the service immediately
+sudo systemctl start myapp.service
+
 
