@@ -30,7 +30,10 @@ cd Astrolabe || exit
 find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
 
 # Build and install apriltag
-cd Coprocessor/apriltag || exit
+cd Coprocessor || exit
+
+git clone https://github.com/swatbotics/apriltag.git
+
 mkdir build
 cd build || exit
 cmake .. -DCMAKE_BUILD_TYPE=Release
