@@ -132,28 +132,6 @@ class FunctionalObject:
             self.vertical_field_of_view = max(camera_params[serial_number]["vertical_field_of_view_radians"], 0)
             self.processing_scale = max(camera_params[serial_number]["processing_scale"], 1)
 
-        except json.JSONDecodeError:
-            print("camera-params.json not found. Using default values.")
-            self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
-            self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
-            self.camera_height = 0
-            self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
-            self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
-            self.tilt_angle_radians = 0
-            self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
-            self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
-            self.processing_scale = PROCESSING_SCALE
-            camera_params = {f"{serial_number}": {"horizontal_focal_length": self.horizontal_focal_length,
-                                         "vertical_focal_length": self.vertical_focal_length,
-                                         "camera_height": self.camera_height,
-                                         "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
-                                         "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
-                                         "tilt_angle_radians": self.tilt_angle_radians,
-                                         "horizontal_field_of_view_radians": self.horizontal_field_of_view,
-                                         "vertical_field_of_view_radians": self.vertical_field_of_view,
-                                         "processing_scale": self.processing_scale}}
-            with open('camera-params.json', 'w') as f:
-                json.dump(camera_params, f, indent=4)
         except KeyError as e:
             print("Camera name not found in camera-params.json or params are invalid. Using default values.")
             print(e)
@@ -181,6 +159,30 @@ class FunctionalObject:
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
                 "processing_scale": self.processing_scale
             }
+            with open('camera-params.json', 'w') as f:
+                json.dump(camera_params, f, indent=4)
+
+
+        except:
+            print("camera-params.json not found. Using default values.")
+            self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
+            self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
+            self.camera_height = 0
+            self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
+            self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
+            self.tilt_angle_radians = 0
+            self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
+            self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
+            self.processing_scale = PROCESSING_SCALE
+            camera_params = {f"{serial_number}": {"horizontal_focal_length": self.horizontal_focal_length,
+                                         "vertical_focal_length": self.vertical_focal_length,
+                                         "camera_height": self.camera_height,
+                                         "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
+                                         "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
+                                         "tilt_angle_radians": self.tilt_angle_radians,
+                                         "horizontal_field_of_view_radians": self.horizontal_field_of_view,
+                                         "vertical_field_of_view_radians": self.vertical_field_of_view,
+                                         "processing_scale": self.processing_scale}}
             with open('camera-params.json', 'w') as f:
                 json.dump(camera_params, f, indent=4)
 
@@ -478,20 +480,50 @@ class FunctionalObject:
             else:
                 await websocket.send('{"error": ' + str(e) + '}')
                 return
-
+        with open('camera-params.json', 'w') as f:
+            pass
         with open('camera-params.json', 'r') as f:
             camera_params = json.loads(f.read())
-        camera_params[self.serial_number] = {
-            "horizontal_focal_length": self.horizontal_focal_length,
-            "vertical_focal_length": self.vertical_focal_length,
-            "camera_height": self.camera_height,
-            "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
-            "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
-            "tilt_angle_radians": self.tilt_angle_radians,
-            "horizontal_field_of_view_radians": self.horizontal_field_of_view,
-            "vertical_field_of_view_radians": self.vertical_field_of_view,
-            "processing_scale": self.processing_scale
-        }
+
+        try:
+            camera_params[self.serial_number] = {
+                "horizontal_focal_length": self.horizontal_focal_length,
+                "vertical_focal_length": self.vertical_focal_length,
+                "camera_height": self.camera_height,
+                "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
+                "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
+                "tilt_angle_radians": self.tilt_angle_radians,
+                "horizontal_field_of_view_radians": self.horizontal_field_of_view,
+                "vertical_field_of_view_radians": self.vertical_field_of_view,
+                "processing_scale": self.processing_scale
+            }
+        except KeyError as e:
+            print("Camera name not found in camera-params.json or params are invalid. Using default values.")
+            print(e)
+            self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
+            self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
+            self.camera_height = 0
+            self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
+            self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
+            self.tilt_angle_radians = 0
+            self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
+            self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
+            self.processing_scale = PROCESSING_SCALE
+
+            # Overwrite the parameters in the file with the defaults
+            with open('camera-params.json', 'r') as f:
+                camera_params = json.loads(f.read())
+            camera_params[self.serial_number] = {
+                "horizontal_focal_length": self.horizontal_focal_length,
+                "vertical_focal_length": self.vertical_focal_length,
+                "camera_height": self.camera_height,
+                "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
+                "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
+                "tilt_angle_radians": self.tilt_angle_radians,
+                "horizontal_field_of_view_radians": self.horizontal_field_of_view,
+                "vertical_field_of_view_radians": self.vertical_field_of_view,
+                "processing_scale": self.processing_scale
+            }
         with open('camera-params.json', 'w') as f:
             json.dump(camera_params, f, indent=4)
         await self.info(websocket)
