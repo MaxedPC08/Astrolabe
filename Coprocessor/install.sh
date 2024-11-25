@@ -21,9 +21,10 @@ sudo apt install -y python3-pip
 sudo apt-get install -y python3-opencv
 sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
+sudo apt-get install -y cmake
 
 # Clone the repository
-if git timeout 5s clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
+if timeout 5s git clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.
@@ -38,7 +39,7 @@ find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
 # Build and install apriltag
 cd Coprocessor || exit
 
-if git timeout 5s clone https://github.com/swatbotics/apriltag.git Astrolabe; then
+if timeout 5s git clone https://github.com/swatbotics/apriltag.git Astrolabe; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.
