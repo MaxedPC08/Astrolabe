@@ -46,7 +46,7 @@ else
     This is likely due to misconfigured ipv4 settings. Not to worry: attempting to clone via ipv6 proxy."
     git clone https://danwin1210.de:1443/swatbotics/apriltag
 fi
-
+cd apriltag || exit
 mkdir build
 cd build || exit
 cmake .. -DCMAKE_BUILD_TYPE=Release
