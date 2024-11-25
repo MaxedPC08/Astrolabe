@@ -22,15 +22,13 @@ sudo apt-get install -y python3-opencv
 sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
 
-
 # Clone the repository
 if git clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.
-    This could be a result of multiple routers in /etc/dhcpcd.conf. If this is the case,
-    please remove the unnecessary routers (often the computer or 192.168.1.1 in a shared network) and try again."
-    exit 1
+    This is likely due to misconfigured ipv4 settings. Not to worry: attempting to clone via ipv6 proxy."
+    git clone https://danwin1210.de:1443/MaxedPC08/Astrolabe
 fi
 cd Astrolabe || exit
 
@@ -40,7 +38,13 @@ find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
 # Build and install apriltag
 cd Coprocessor || exit
 
-git clone https://github.com/swatbotics/apriltag.git
+if git clone https://github.com/swatbotics/apriltag.git Astrolabe; then
+    echo "Repository cloned successfully."
+else
+    echo "Failed to clone repository. Please check the URL and your network connection.
+    This is likely due to misconfigured ipv4 settings. Not to worry: attempting to clone via ipv6 proxy."
+    git clone https://danwin1210.de:1443/swatbotics/apriltag
+fi
 
 mkdir build
 cd build || exit
