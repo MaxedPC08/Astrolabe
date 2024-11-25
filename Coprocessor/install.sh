@@ -22,8 +22,16 @@ sudo apt-get install -y python3-opencv
 sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
 
+
 # Clone the repository
-git clone https://github.com/MaxedPC08/Astrolabe.git
+if git clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
+    echo "Repository cloned successfully."
+else
+    echo "Failed to clone repository. Please check the URL and your network connection.
+    This could be a result of multiple routers in /etc/dhcpcd.conf. If this is the case,
+    please remove the unnecessary routers (often the computer or 192.168.1.1 in a shared network) and try again."
+    exit 1
+fi
 cd Astrolabe || exit
 
 # Delete all items except the Coprocessor directory
