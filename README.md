@@ -48,4 +48,4 @@ string.
 ## Installation
 Installations for the coprocessor and the client are different. The instructions for the coprocessor are in the
 [Coprocessor's README file](Coprocessor/README.md). The instructions for the client are in the 
-[Client's README file](Client/README.md).
+[Client's README file](Client/README.md). The instructions for the robot code implimentation are in the [RoboRIO README file](RoboRIO/README.md).
