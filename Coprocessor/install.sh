@@ -23,7 +23,7 @@ sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
 
 # Clone the repository
-if git clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
+if git timeout 5s clone https://github.com/MaxedPC08/Astrolabe.git Astrolabe; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.
@@ -38,7 +38,7 @@ find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
 # Build and install apriltag
 cd Coprocessor || exit
 
-if git clone https://github.com/swatbotics/apriltag.git Astrolabe; then
+if git timeout 5s clone https://github.com/swatbotics/apriltag.git Astrolabe; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.
