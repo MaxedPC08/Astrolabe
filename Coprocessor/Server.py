@@ -8,10 +8,16 @@ from Functional import FunctionalObject
 class Server:
     def __init__(self, name, serial_number, port=50000):
         # Get the IP address of the Ethernet interface
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        self.ethernet_ip = s.getsockname()[0]
-        s.close()
+        
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            self.ethernet_ip = s.getsockname()[0]
+            s.close()
+        except socket.error as e:
+            print(f"Error obtaining IP address: {e}")
+            self.ethernet_ip = "127.0.0.1"  # Fallback to localhost
+
         self.functional_object = FunctionalObject(name, serial_number)
         self.port = port
 
