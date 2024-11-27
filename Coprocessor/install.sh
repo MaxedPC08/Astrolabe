@@ -56,14 +56,14 @@ sudo make install
 cd ../..
 
 # Create systemd service file
-SERVICE_FILE="/etc/systemd/system/myapp.service"
+SERVICE_FILE="/etc/systemd/system/astrolabe.service"
 sudo bash -c "cat > $SERVICE_FILE" <<EOL
 [Unit]
-Description=Run main.py at startup
+Description=Run Astrolabe at startup
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 $(pwd)/main.py
+ExecStart=sudo /usr/bin/python3 $(pwd)/main.py
 WorkingDirectory=$(pwd)
 StandardOutput=inherit
 StandardError=inherit
@@ -78,9 +78,9 @@ EOL
 sudo systemctl daemon-reload
 
 # Enable the service to start on boot
-sudo systemctl enable myapp.service
+sudo systemctl enable astrolabe.service
 
 # Start the service immediately
-sudo systemctl start myapp.service
+sudo systemctl start astrolabe.service
 
 

@@ -8,7 +8,6 @@ from Functional import FunctionalObject
 class Server:
     def __init__(self, name, serial_number, port=50000):
         # Get the IP address of the Ethernet interface
-        
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
