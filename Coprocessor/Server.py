@@ -7,7 +7,7 @@ from Functional import FunctionalObject
 
 class Server:
     def __init__(self, name, serial_number, port=50000):
-        # Get the IP address of the Ethernet interface
+        # Get the IP address of the Ethernet interface from file
         self.functional_object = FunctionalObject(name, serial_number)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()

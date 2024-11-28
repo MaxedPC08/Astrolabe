@@ -105,5 +105,4 @@ sudo ifconfig "$interface" "$new_ip" netmask 255.255.255.0
 sudo ifconfig "$interface" up
 
 # output network information to a file for connecting to the RPI
-
 echo "$new_ip" > ip.txt
