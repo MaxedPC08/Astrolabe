@@ -1,25 +1,31 @@
 import asyncio
 import websockets
-import os
 import inspect
 from Functional import FunctionalObject
+import subprocess
+
 
 
 class Server:
     def __init__(self, name, serial_number, port=50000):
-        # Get the IP address of the Ethernet interface from file
+        # Get the IP address of the Ethernet interface
         self.functional_object = FunctionalObject(name, serial_number)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()
 
     def get_ethernet_ip(self):
-        ip_file = 'ip.txt'
-        if os.path.exists(ip_file):
-            with open(ip_file, 'r') as file:
-                ip_address = file.read().strip()
-                return ip_address
-        else:
-            raise FileNotFoundError(f"{ip_file} does not exist")
+        try:
+            # Find the Ethernet interface
+            interface = subprocess.check_output("ip -o link show | awk -F': ' '{print $2}' | grep -E 'eth|enp'",
+                                                shell=True).decode().strip()
+            # Assign a link-local IP address using avahi-autoipd
+            ip_address = subprocess.check_output(
+                f"ip -4 addr show {interface} | grep -oP '(?<=inet\s)\d+(\.\d+){3}'",
+                shell=True).decode().strip()
+            return ip_address
+        except Exception as e:
+            raise RuntimeError(f"Failed to get Ethernet IP address: {e}")
+
     # WebSocket server
     async def websocket_server(self, websocket, path):
         """

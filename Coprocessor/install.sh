@@ -83,26 +83,3 @@ sudo systemctl enable astrolabe.service
 # Start the service immediately
 sudo systemctl start astrolabe.service
 
-# Set up static IP
-if [ -z "$1" ]; then
-    echo "No IP address provided. Exiting."
-    exit 1
-else
-    new_ip=$1
-fi
-
-if [ -z "$2" ]; then
-    echo "No interface provided. Exiting."
-    exit 1
-else
-    interface=$2
-fi
-
-# Set the new IP address
-sudo ifconfig "$interface" "$new_ip" netmask 255.255.255.0
-
-# Bring the interface up
-sudo ifconfig "$interface" up
-
-# output network information to a file for connecting to the RPI
-echo "$new_ip" > ip.txt
