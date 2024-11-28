@@ -1,6 +1,6 @@
 import asyncio
 import websockets
-import socket
+import os
 import inspect
 from Functional import FunctionalObject
 
@@ -8,13 +8,18 @@ from Functional import FunctionalObject
 class Server:
     def __init__(self, name, serial_number, port=50000):
         # Get the IP address of the Ethernet interface
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        self.ethernet_ip = s.getsockname()[0]
-        s.close()
         self.functional_object = FunctionalObject(name, serial_number)
         self.port = port
+        self.ethernet_ip = self.get_ethernet_ip()
 
+    def get_ethernet_ip(self):
+        ip_file = 'ip.txt'
+        if os.path.exists(ip_file):
+            with open(ip_file, 'r') as file:
+                ip_address = file.read().strip()
+                return ip_address
+        else:
+            raise FileNotFoundError(f"{ip_file} does not exist")
     # WebSocket server
     async def websocket_server(self, websocket, path):
         """
