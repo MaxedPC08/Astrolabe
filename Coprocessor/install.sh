@@ -83,3 +83,13 @@ sudo systemctl enable astrolabe.service
 # Start the service immediately
 sudo systemctl start astrolabe.service
 
+echo "Installation complete. Finding the IP address of the device... "
+printf "\n\n\n\n"
+
+interface=$(ip -o link show | awk '/ether/ {print $2; exit}' | sed 's/://')
+
+ip=$(ip -o -4 addr show "$interface" | awk '{print $4; exit}' | cut -d "/" -f 1)
+
+echo "The IP address of the device is: $ip on interface $interface"
+
+

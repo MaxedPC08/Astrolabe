@@ -16,7 +16,7 @@ class Server:
     def get_ethernet_ip(self):
         try:
             # Find the Ethernet interface
-            interface = subprocess.check_output("ip -o link show | awk -F': ' '{print $2}' | grep -E 'eth|enp'",
+            interface = subprocess.check_output("ip -o link show | awk '/ether/ {print $2; exit}' | sed 's/://'",
                                                 shell=True).decode().strip()
             # Assign a link-local IP address using avahi-autoipd
             ip_address = subprocess.check_output(
