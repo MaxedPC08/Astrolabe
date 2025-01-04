@@ -11,6 +11,7 @@ To install all dependencies, run the following command on your machine from this
 ```bash
 pip install -r requirements.txt
 ```
+With nix, just run `nix-shell`
 ## Important information
 * To select a color, click on the image where the color is. This will set the color to the color of the pixel you clicked on.
 * The client will not work if the server is not running. Make sure the server is running before starting the client.
