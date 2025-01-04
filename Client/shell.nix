@@ -6,6 +6,8 @@ in pkgs.mkShell {
     (python312.withPackages (ps: with ps; [
       numpy
       tkinter
+      pillow
+      websockets
     ]))
     python312Packages.pip
   ];
