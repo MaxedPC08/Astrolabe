@@ -412,13 +412,18 @@ class FunctionalObject:
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
                                self.camera_vertical_resolution_pixels // self.processing_scale))
-        _, center, width = self.locater.locate_stripped(
-            img)  # Locate the object in the image. Comment out this line if you don't want to process the image.
+        _, center, width, coefficient = self.locater.locate_stripped(
+            img)  # Locate the object in the image. Comment out this line if you don't want to process the image. 
+        # The coefficient is either the angle or the slope of the line through the coral - we need to test this.
+        
+        # Calculate the angle of the line in degrees
+        angle = np.arctan(coefficient)
+
         if width == -1:
-            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1)}')
+            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1),\n "angle": null}')
         else:
             dist, angle = self.locater.loc_from_center(center)
-            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + "}")
+            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + ',\n "angle": ' + str(angle) + "}")
 
     async def set_camera_params(self, websocket, values):
         json_vals = json.loads(values)

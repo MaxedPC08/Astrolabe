@@ -184,7 +184,12 @@ class Locater:
         left = np.min(indices[1])
         right = np.max(indices[1])
 
-        return image, center, right-left
+        # Run linear regression on the whole mask to get a line to highlight the piece
+        if len(indices[0]) > 1:
+            # Perform linear regression to find the best fit line
+            poly_coeff = np.polyfit(indices[:, 1], indices[:, 0], 1)
+
+        return image, center, right-left, poly_coeff
 
     def loc_from_center(self, center):
         """
