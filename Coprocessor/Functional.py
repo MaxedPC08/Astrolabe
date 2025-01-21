@@ -341,6 +341,7 @@ class FunctionalObject:
 
         # Capture an image frame
         ret, frame = self.camera.read()
+        time = time.time()
         if not ret:
             self.camera.release()
             self.camera = cv2.VideoCapture(self.name)
@@ -391,7 +392,7 @@ class FunctionalObject:
 
             tag_list.append(
                 {"tag_id": tag["tag_id"], "position": pose_T.flatten().tolist(), "orientation": euler_angles.tolist(),
-                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": -angle_radians_vert})
+                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": -angle_radians_vert, "time": time})
 
         await websocket.send(json.dumps(tag_list))
 
@@ -417,13 +418,13 @@ class FunctionalObject:
         # The coefficient is either the angle or the slope of the line through the coral - we need to test this.
         
         # Calculate the angle of the line in degrees
-        angle = np.arctan(coefficient)
+        piece_angle = np.degrees(np.arctan(coefficient))
 
         if width == -1:
-            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1),\n "angle": null}')
+            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1),\n "piece_angle": null}')
         else:
             dist, angle = self.locater.loc_from_center(center)
-            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + ',\n "angle": ' + str(angle) + "}")
+            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + ',\n "piece_angle": ' + str(coefficient) + "}")
 
     async def set_camera_params(self, websocket, values):
         json_vals = json.loads(values)
@@ -550,15 +551,17 @@ class FunctionalObject:
             "active_color": self.locater.active_color
         }
 
-        hardware = get_raspberry_pi_performance()
+        
 
         if h:
+            hardware = get_raspberry_pi_performance()
             await websocket.send(json.dumps(hardware))
         else:
             await websocket.send(json.dumps(info_dict))
 
     def __del__(self):
         # Cleanup code
-        if self.camera.isOpened():
+
+        if hasattr(self, 'camera') and self.camera.isOpened():
             self.camera.release()
         del self

@@ -34,6 +34,7 @@ def name_valid_cams():
     sn_counts = {sn: serial_numbers.count(sn) for sn in set(serial_numbers)}
     known_devices = [[device[0], device[1]+"-"+device[2] if sn_counts[device[1]]>1 else device[1]] for device in known_devices]
     known_devices = sorted(known_devices, key=lambda x: x[1])
+    known_devices = [[device[0].split("\n")[0], device[1]] for i, device in enumerate(known_devices)]
     return known_devices
 
 def start_server_with_affinity(server, cpu_core):

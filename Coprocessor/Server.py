@@ -3,6 +3,7 @@ import websockets
 import inspect
 from Functional import FunctionalObject
 import subprocess
+import constants
 
 
 
@@ -12,8 +13,11 @@ class Server:
         self.functional_object = FunctionalObject(name, serial_number)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()
+        print(f"Ethernet IP address: {self.ethernet_ip}")
 
     def get_ethernet_ip(self):
+        if constants.LOCAL_HOST:
+            return "127.0.0.1"
         try:
             # Find the Ethernet interface
             interface = subprocess.check_output("ip -o link show | awk '/ether/ {print $2; exit}' | sed 's/://'",
@@ -27,7 +31,7 @@ class Server:
             raise RuntimeError(f"Failed to get Ethernet IP address: {e}")
 
     # WebSocket server
-    async def websocket_server(self, websocket, path):
+    async def websocket_server(self, websocket):
         """
         This function is the main function for the WebSocket server.
         It receives images from the client and sends them back.
@@ -114,7 +118,14 @@ class Server:
             await websocket.close()
 
     def start_server(self):
-        start_server = websockets.serve(self.websocket_server, self.ethernet_ip, self.port)
-        print(f"Server started at ws://{self.ethernet_ip}:{self.port} for {self.functional_object.name}")
-        asyncio.get_event_loop().run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
+        if not constants.LOCAL_HOST:
+            start_server = websockets.serve(self.websocket_server, self.ethernet_ip, self.port)
+            print(f"Server started at ws://{self.ethernet_ip}:{self.port} for {self.functional_object.name}")
+            asyncio.get_event_loop().run_until_complete(start_server)
+            asyncio.get_event_loop().run_forever()
+        else:
+            async def _start_server():
+                server = await websockets.serve(self.websocket_server, self.ethernet_ip, self.port)
+                await server.wait_closed()
+            
+            asyncio.run(_start_server())

@@ -177,19 +177,35 @@ class Locater:
 
         # Process the image and make it viewer - worthy
         # Get the indices where image equals 1
-        indices = np.where(image == -new_color[0])
+        indices = np.asarray(np.where(image == -new_color[0]))
 
         # Calculate the center, left, and right directly from the indices
         center = np.mean(indices, axis=1)
         left = np.min(indices[1])
         right = np.max(indices[1])
+        height = np.max(indices[0]) - np.min(indices[0])
+        width = np.max(indices[1]) - np.min(indices[1])
 
         # Run linear regression on the whole mask to get a line to highlight the piece
         if len(indices[0]) > 1:
             # Perform linear regression to find the best fit line
-            poly_coeff = np.polyfit(indices[:, 1], indices[:, 0], 1)
+            x_coords = indices[1, :]
+            print(len(x_coords))
+            y_coords = indices[0, :]
+            x_mean = np.mean(x_coords)
+            y_mean = np.mean(y_coords)
+            numerator = np.sum((x_coords - x_mean) * (y_coords - y_mean))
+            denominator = np.sum((x_coords - x_mean) ** 2)
+            slope = numerator / denominator
 
-        return image, center, right-left, poly_coeff
+            if height > width:
+                slope = -1 / slope if slope != 0 else float('inf')
+
+            # Calculate the angle of the line in radians
+        else:
+            slope = 0
+
+        return image, center, right-left, np.degrees(np.arctan(slope))
 
     def loc_from_center(self, center):
         """
