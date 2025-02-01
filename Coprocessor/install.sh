@@ -40,7 +40,7 @@ find . -mindepth 1 -maxdepth 1 ! -name 'Coprocessor' -exec rm -rf {} +
 # Build and install apriltag
 cd Coprocessor || exit
 
-if timeout 5s git clone https://github.com/swatbotics/apriltag.git Astrolabe; then
+if timeout 5s git clone https://github.com/swatbotics/apriltag.git; then
     echo "Repository cloned successfully."
 else
     echo "Failed to clone repository. Please check the URL and your network connection.

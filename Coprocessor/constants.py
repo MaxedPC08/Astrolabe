@@ -13,7 +13,7 @@ CAMERA_HEIGHT = 30  # This is the height of the camera in whatever units you wan
 APRIL_TAG_WIDTH = 0.155
 APRIL_TAG_HEIGHT = 0.155
 
-LOCAL_HOST = False
+LOCAL_HOST = True
 
 HORIZONTAL_FOCAL_LENGTH = ((CAMERA_HORIZONTAL_RESOLUTION_PIXELS / 2) /
                            np.tan(CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS / 2))

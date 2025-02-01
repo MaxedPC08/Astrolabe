@@ -417,14 +417,22 @@ class FunctionalObject:
             img)  # Locate the object in the image. Comment out this line if you don't want to process the image. 
         # The coefficient is either the angle or the slope of the line through the coral - we need to test this.
         
-        # Calculate the angle of the line in degrees
-        piece_angle = np.degrees(np.arctan(coefficient))
 
+        
         if width == -1:
             await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1),\n "piece_angle": null}')
         else:
-            dist, angle = self.locater.loc_from_center(center)
-            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle) + ',\n "center": ' + str(center) + ',\n "piece_angle": ' + str(coefficient) + "}")
+            dist, angle_horiz, angle_vert = self.locater.loc_from_center(center)
+                    # Calculate the angle of the line in degrees
+            piece_angle = np.arctan(coefficient)
+
+            # Calculate the vertical angle to the piece
+            angle_to_piece_vertical = self.tilt_angle_radians - (self.vertical_field_of_view / 2.0) + angle_vert
+
+            new_piece_angle = np.arctan(np.tan(piece_angle)/np.cos(angle_to_piece_vertical))
+
+            print(coefficient, np.degrees(angle_to_piece_vertical))
+            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle_horiz) + ',\n "center": ' + str(center) + ',\n "piece_angle": ' + str(np.degrees(new_piece_angle)) + "}")
 
     async def set_camera_params(self, websocket, values):
         json_vals = json.loads(values)

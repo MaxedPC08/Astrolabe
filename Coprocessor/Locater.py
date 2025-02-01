@@ -190,7 +190,6 @@ class Locater:
         if len(indices[0]) > 1:
             # Perform linear regression to find the best fit line
             x_coords = indices[1, :]
-            print(len(x_coords))
             y_coords = indices[0, :]
             x_mean = np.mean(x_coords)
             y_mean = np.mean(y_coords)
@@ -205,7 +204,7 @@ class Locater:
         else:
             slope = 0
 
-        return image, center, right-left, np.degrees(np.arctan(slope))
+        return image, center, right-left, slope
 
     def loc_from_center(self, center):
         """
@@ -220,4 +219,4 @@ class Locater:
         angle_radians_vert = ((self.max_vertical_angle - center[0] * self.res_corresp_vertical) +
                               self.tilt_angle_radians - self.camera_vertical_field_of_view_radians * 0.5)
         dist = (np.tan(angle_radians_vert) * self.camera_height) / np.cos(angle_radians_horiz)
-        return dist, angle_radians_horiz
+        return dist, angle_radians_horiz, angle_radians_vert
