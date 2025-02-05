@@ -17,6 +17,10 @@ class Server:
 
     def get_ethernet_ip(self):
         if constants.LOCAL_HOST:
+            with open("ip_address.txt", "w") as f:
+                f.write("Localhost")
+                f.write("\n")
+                f.write(subprocess.check_output("date", shell=True).decode().strip())
             return "127.0.0.1"
         try:
             # Find the Ethernet interface
@@ -26,6 +30,11 @@ class Server:
             ip_address = subprocess.check_output(
                 f"ip -4 addr show {interface} | grep -oP '(?<=inet\s)\d+(\.\d+){3}'",
                 shell=True).decode().strip()
+            with open("ip_address.txt", "w") as f:
+                f.write(ip_address)
+                f.write("\n")
+                f.write(subprocess.check_output("date", shell=True).decode().strip())
+            
             return ip_address
         except Exception as e:
             raise RuntimeError(f"Failed to get Ethernet IP address: {e}")
