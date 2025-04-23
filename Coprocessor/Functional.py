@@ -1,3 +1,4 @@
+import base64
 import os
 import psutil
 import platform
@@ -8,8 +9,8 @@ import json
 from apriltag import Detector
 from constants import (APRIL_TAG_WIDTH, APRIL_TAG_HEIGHT,
                        HORIZONTAL_FOCAL_LENGTH, VERTICAL_FOCAL_LENGTH, CAMERA_HORIZONTAL_RESOLUTION_PIXELS,
-                       CAMERA_VERTICAL_RESOLUTION_PIXELS, PROCESSING_SCALE, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS,
-                       CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, cv2_props_dict)
+                       CAMERA_VERTICAL_RESOLUTION_PIXELS, DOWNSCALE_FACTOR, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS,
+                       CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT, cv2_props_dict)
 
 """
 This file contains the FunctionalObject class which is used to create an object that can be used to interact with the
@@ -20,7 +21,30 @@ the Locater class to locate objects in an image and the apriltag library to dete
 also uses the cv2 library to capture images from the camera and perform image processing tasks. It is the core of the
 coprocessor functionality. It can be safely edited by the user for custom functionality.
 """
-
+def encode_image_for_websocket(image_path, format="png"):
+    # Read the image
+    img = cv2.imread(image_path)
+    
+    # Encode the image to PNG or JPEG bytes
+    if format.lower() == "png":
+        _, img_encoded = cv2.imencode('.png', img)
+    else:
+        # For JPEG, can specify quality (0-100)
+        _, img_encoded = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    
+    # Convert to base64 string
+    base64_string = base64.b64encode(img_encoded).decode('utf-8')
+    
+    # Create a message with metadata
+    message = {
+        "image": base64_string,
+        "format": format,
+        "width": img.shape[1],
+        "height": img.shape[0]
+    }
+    
+    # Convert to JSON string for sending
+    return json.dumps(message)
 
 def get_raspberry_pi_performance():
     """
@@ -130,20 +154,20 @@ class FunctionalObject:
             self.tilt_angle_radians = camera_params[serial_number]["tilt_angle_radians"]
             self.horizontal_field_of_view = max(camera_params[serial_number]["horizontal_field_of_view_radians"], 0)
             self.vertical_field_of_view = max(camera_params[serial_number]["vertical_field_of_view_radians"], 0)
-            self.processing_scale = max(camera_params[serial_number]["processing_scale"], 1)
+            self.downscale_factor = max(camera_params[serial_number]["downscale_factor"], 1)
 
         except KeyError as e:
             print("Camera name not found in camera-params.json or params are invalid. Using default values.")
             print(e)
             self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
             self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
-            self.camera_height = 0
+            self.camera_height = CAMERA_HEIGHT
             self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
             self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
             self.tilt_angle_radians = 0
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
-            self.processing_scale = PROCESSING_SCALE
+            self.downscale_factor = DOWNSCALE_FACTOR
 
             # Overwrite the parameters in the file with the defaults
             with open('camera-params.json', 'r') as f:
@@ -157,7 +181,7 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "processing_scale": self.processing_scale
+                "downscale_factor": self.downscale_factor
             }
             with open('camera-params.json', 'w') as f:
                 json.dump(camera_params, f, indent=4)
@@ -167,13 +191,13 @@ class FunctionalObject:
             print("camera-params.json not found. Using default values.")
             self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
             self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
-            self.camera_height = 0
+            self.camera_height = CAMERA_HEIGHT
             self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
             self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
             self.tilt_angle_radians = 0
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
-            self.processing_scale = PROCESSING_SCALE
+            self.downscale_factor = DOWNSCALE_FACTOR
             camera_params = {f"{serial_number}": {"horizontal_focal_length": self.horizontal_focal_length,
                                          "vertical_focal_length": self.vertical_focal_length,
                                          "camera_height": self.camera_height,
@@ -182,7 +206,7 @@ class FunctionalObject:
                                          "tilt_angle_radians": self.tilt_angle_radians,
                                          "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                                          "vertical_field_of_view_radians": self.vertical_field_of_view,
-                                         "processing_scale": self.processing_scale}}
+                                         "downscale_factor": self.downscale_factor}}
             with open('camera-params.json', 'w') as f:
                 json.dump(camera_params, f, indent=4)
 
@@ -190,7 +214,7 @@ class FunctionalObject:
                                self.camera_vertical_resolution_pixels,
                                self.tilt_angle_radians, self.camera_height,
                                self.horizontal_field_of_view, self.vertical_field_of_view,
-                               self.processing_scale)
+                               self.downscale_factor)
 
         # Open the camera and check if it works. This code block can sometimes be beneficial for clearing the camera.
         temp_camera = cv2.VideoCapture(name)
@@ -199,7 +223,7 @@ class FunctionalObject:
 
         # Open the camera and check if it works
         self.camera = cv2.VideoCapture(name)
-        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Set the codec to MJPG,
+        # self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Set the codec to MJPG,
         # as it is compatible with most cameras.
         cam_works, _ = self.camera.read()
         if not cam_works:
@@ -223,8 +247,8 @@ class FunctionalObject:
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Resize the image to the processing scale to speed up processing
-            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                                   self.camera_vertical_resolution_pixels // self.processing_scale))
+            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.downscale_factor,
+                                   self.camera_vertical_resolution_pixels // self.downscale_factor))
             img, _, _ = self.locater.locate(
                 img)  # Locate the object in the image.
             image_array = np.asarray(
@@ -251,8 +275,8 @@ class FunctionalObject:
         # Convert the frame to RGB for visualization and resize it to the processing scale
         try:
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                                   self.camera_vertical_resolution_pixels // self.processing_scale))
+            img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.downscale_factor,
+                                   self.camera_vertical_resolution_pixels // self.downscale_factor))
             image_array = np.asarray(img).flatten()
         except Exception as e:
             await websocket.send('{"error": "' + str(e) + '"}')
@@ -310,8 +334,8 @@ class FunctionalObject:
             return
 
         # Convert the image to grayscale
-        frame = cv2.resize(frame, (int(self.camera_horizontal_resolution_pixels / self.processing_scale),
-                                   int(self.camera_vertical_resolution_pixels / self.processing_scale)))
+        frame = cv2.resize(frame, (int(self.camera_horizontal_resolution_pixels / self.downscale_factor),
+                                   int(self.camera_vertical_resolution_pixels / self.downscale_factor)))
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -329,7 +353,9 @@ class FunctionalObject:
 
         image_array = np.asarray(img)
 
-        await websocket.send(image_array.tobytes())
+        
+
+        await websocket.send(encode_image_for_websocket(image_array, format="png"))
 
     async def apriltag_headless(self, websocket):
         """
@@ -341,7 +367,6 @@ class FunctionalObject:
 
         # Capture an image frame
         ret, frame = self.camera.read()
-        time = time.time()
         if not ret:
             self.camera.release()
             self.camera = cv2.VideoCapture(self.name)
@@ -384,7 +409,7 @@ class FunctionalObject:
 
             vertical_correspondant = (np.tan(self.vertical_field_of_view / 2.0) /
                                         (self.camera_vertical_resolution_pixels / 2.0))
-            max_vertical_angle = self.camera_vertical_resolution_pixels / self.processing_scale * vertical_correspondant
+            max_vertical_angle = self.camera_vertical_resolution_pixels / self.downscale_factor * vertical_correspondant
 
             angle_radians_vert = ((max_vertical_angle - tag["center"][1] * (np.tan(self.vertical_field_of_view / 2.0) /
                                      (self.camera_vertical_resolution_pixels / 2.0))) +
@@ -392,7 +417,7 @@ class FunctionalObject:
 
             tag_list.append(
                 {"tag_id": tag["tag_id"], "position": pose_T.flatten().tolist(), "orientation": euler_angles.tolist(),
-                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": -angle_radians_vert, "time": time})
+                 "distance": distance_avg, "horizontal_angle": angle_radians_horiz, "vertical_angle": -angle_radians_vert})
 
         await websocket.send(json.dumps(tag_list))
 
@@ -411,8 +436,8 @@ class FunctionalObject:
             await websocket.send('{"error": "Failed to capture image"}')
             return
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                               self.camera_vertical_resolution_pixels // self.processing_scale))
+        img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.downscale_factor,
+                               self.camera_vertical_resolution_pixels // self.downscale_factor))
         _, center, width, coefficient = self.locater.locate_stripped(
             img)  # Locate the object in the image. Comment out this line if you don't want to process the image. 
         # The coefficient is either the angle or the slope of the line through the coral - we need to test this.
@@ -420,7 +445,7 @@ class FunctionalObject:
 
         
         if width == -1:
-            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": (-1, -1),\n "piece_angle": null}')
+            await websocket.send('{"distance": -1,\n "angle": -1,\n "center": [-1, -1],\n "piece_angle": null}')
         else:
             dist, angle_horiz, angle_vert = self.locater.loc_from_center(center)
                     # Calculate the angle of the line in degrees
@@ -431,8 +456,7 @@ class FunctionalObject:
 
             new_piece_angle = np.arctan(np.tan(piece_angle)/np.cos(angle_to_piece_vertical))
 
-            print(coefficient, np.degrees(angle_to_piece_vertical))
-            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle_horiz) + ',\n "center": ' + str(center) + ',\n "piece_angle": ' + str(np.degrees(new_piece_angle)) + "}")
+            await websocket.send('{"distance": ' + str(dist) + ',\n "angle": ' + str(angle_horiz) + ',\n "center": [' + str(center[0]) + "," + str(center[0]) + '],\n "piece_angle": ' + str(np.degrees(new_piece_angle)) + "}")
 
     async def set_camera_params(self, websocket, values):
         json_vals = json.loads(values)
@@ -458,7 +482,7 @@ class FunctionalObject:
             "tilt_angle_radians": self.tilt_angle_radians,
             "horizontal_field_of_view_radians": self.horizontal_field_of_view,
             "vertical_field_of_view_radians": self.vertical_field_of_view,
-            "processing_scale": self.processing_scale
+            "downscale_factor": self.downscale_factor
         }
         for key in values_dict.keys():
             try:
@@ -478,7 +502,7 @@ class FunctionalObject:
                                                  "horizontal_field_of_view_radians"), 1)
         self.vertical_field_of_view = max(float_we(values_dict["vertical_field_of_view_radians"],
                                                "vertical_field_of_view_radians"), 1)
-        self.processing_scale = max(int_we(values_dict["processing_scale"], "processing_scale"), 1)
+        self.downscale_factor = max(int_we(values_dict["downscale_factor"], "downscale_factor"), 1)
 
         try:
             params_list = [[key, value] for key, value in json.loads(json_vals["additional_flags"]).items()]
@@ -509,20 +533,20 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "processing_scale": self.processing_scale
+                "downscale_factor": self.downscale_factor
             }
         except KeyError as e:
             print("Camera name not found in camera-params.json or params are invalid. Using default values.")
             print(e)
             self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
             self.vertical_focal_length = VERTICAL_FOCAL_LENGTH
-            self.camera_height = 0
+            self.camera_height = CAMERA_HEIGHT
             self.camera_horizontal_resolution_pixels = CAMERA_HORIZONTAL_RESOLUTION_PIXELS
             self.camera_vertical_resolution_pixels = CAMERA_VERTICAL_RESOLUTION_PIXELS
             self.tilt_angle_radians = 0
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
-            self.processing_scale = PROCESSING_SCALE
+            self.downscale_factor = DOWNSCALE_FACTOR
 
             # Overwrite the parameters in the file with the defaults
             with open('camera-params.json', 'r') as f:
@@ -536,10 +560,16 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "processing_scale": self.processing_scale
+                "downscale_factor": self.downscale_factor
             }
         with open('camera-params.json', 'w') as f:
             json.dump(camera_params, f, indent=4)
+
+        self.locater = Locater(self.camera_horizontal_resolution_pixels,
+                                 self.camera_vertical_resolution_pixels,
+                                 self.tilt_angle_radians, self.camera_height,
+                                 self.horizontal_field_of_view, self.vertical_field_of_view,
+                                 self.downscale_factor)
         await self.info(websocket)
 
     async def info(self, websocket, h=False, *args, **kwargs):
@@ -551,7 +581,7 @@ class FunctionalObject:
             "height": self.camera_height,
             "horizontal_resolution_pixels": self.camera_horizontal_resolution_pixels,
             "vertical_resolution_pixels": self.camera_vertical_resolution_pixels,
-            "processing_scale": self.processing_scale,
+            "downscale_factor": self.downscale_factor,
             "tilt_angle_radians": self.tilt_angle_radians,
             "horizontal_field_of_view_radians": self.horizontal_field_of_view,
             "vertical_field_of_view_radians": self.vertical_field_of_view,

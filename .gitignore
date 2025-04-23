@@ -1,3 +1,5 @@
+*.json
+ip_address.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
