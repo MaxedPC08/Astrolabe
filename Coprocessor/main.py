@@ -3,9 +3,18 @@ import os
 import psutil
 import multiprocessing
 import subprocess
+from constants import TEST_MODE_FALLBACK
 
 def name_valid_cams():
-    device_list = [f"/dev/{device}" for device in os.listdir("/dev") if device.startswith("video")]
+    try:
+        device_list = [f"/dev/{device}" for device in os.listdir("/dev") if device.startswith("video")]
+    except:
+        if TEST_MODE_FALLBACK:
+            return [[-1, "no-cameras-found"]]
+
+    if len(device_list) == 0:
+        return
+
     known_devices = []
 
     for device in device_list:
@@ -48,12 +57,23 @@ if __name__ == "__main__":
     cams_list = name_valid_cams()
     print(f"Found {len(cams_list)} camera(s)")
 
+    if len(cams_list) == 0:
+        server = Server(-2, "No-Camera-Fallback-Host", 50000)
+        servers.append(server)
+        processes.append(start_server_with_affinity(server, 0))
+
     servers = []
     processes = []
-    for i, (camera_index, sn) in enumerate(cams_list):
-        server = Server(camera_index, sn, 50000 + i)
+
+    if cams_list[0][0] == -1:
+        server = Server(-1, "Local-Image-Test-Mode", 50000)
         servers.append(server)
-        processes.append(start_server_with_affinity(server, i % os.cpu_count()))
+        processes.append(start_server_with_affinity(server, 0))
+    else:
+        for i, (camera_index, sn) in enumerate(cams_list):
+            server = Server(camera_index, sn, 50000 + i)
+            servers.append(server)
+            processes.append(start_server_with_affinity(server, i % os.cpu_count()))
 
     for p in processes:
         p.join()

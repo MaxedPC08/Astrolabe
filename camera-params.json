@@ -1,0 +1,13 @@
+{
+    "Local-Image-Test-Mode": {
+        "horizontal_focal_length": 474.4195099240768,
+        "vertical_focal_length": 503.1704637811619,
+        "camera_height": 0,
+        "horizontal_resolution_pixels": 640,
+        "vertical_resolution_pixels": 480,
+        "tilt_angle_radians": 0,
+        "horizontal_field_of_view_radians": 1.1868238913561442,
+        "vertical_field_of_view_radians": 0.890117918517108,
+        "processing_scale": 4
+    }
+}

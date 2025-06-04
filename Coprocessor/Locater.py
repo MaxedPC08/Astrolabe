@@ -111,12 +111,33 @@ class Locater:
 
         # Process the image and make it viewer - worthy
         # Get the indices where image equals 1
-        indices = np.where(image == -new_color[0])
+        indices = np.asarray(np.where(image == -new_color[0]))
 
-        # Calculate the center, left, and right directly from the indices
         center = np.mean(indices, axis=1)
         left = np.min(indices[1])
         right = np.max(indices[1])
+        height = np.max(indices[0]) - np.min(indices[0])
+        width = np.max(indices[1]) - np.min(indices[1])
+
+        if len(indices[0]) > 1:
+            # Perform linear regression to find the best fit line
+            x_coords = indices[1, :]
+            y_coords = indices[0, :]
+            x_mean = np.mean(x_coords)
+            y_mean = np.mean(y_coords)
+            numerator = np.sum((x_coords - x_mean) * (y_coords - y_mean))
+            denominator = np.sum((x_coords - x_mean) ** 2)
+            slope = numerator / denominator
+
+            if height > width:
+                slope = -1 / slope if slope != 0 else float('inf')
+
+            # Calculate the angle of the line in radians
+        else:
+            slope = 0
+
+        # Calculate the center, left, and right directly from the indices
+
 
         image += 0.334
         image = image_copy * image[:, :, np.newaxis]
@@ -132,7 +153,7 @@ class Locater:
         except:
             pass
 
-        return image, center, right-left
+        return image, center, right-left, slope
 
     def locate_stripped(self, image, blur=-1, dif=-1):
         """

@@ -4,8 +4,18 @@ import inspect
 from Functional import FunctionalObject
 import subprocess
 import constants
+import json
 
+"""
+Message format:
 
+{
+function:"
+parameters:{
+
+}
+}
+"""
 
 class Server:
     def __init__(self, name, serial_number, port=50000):
@@ -38,6 +48,31 @@ class Server:
             return ip_address
         except Exception as e:
             raise RuntimeError(f"Failed to get Ethernet IP address: {e}")
+
+    async def websocket_server_new(self, websocket):
+        try:
+            async for message in websocket:
+                appendage = ''
+                message_json = json.loads(message)
+                if not "function" in list(message_json.keys()):
+                    # TODO: Make this error correct with real world examples
+                    websocket.send("""{error: "No key "function" in input json. Please make sure your message is in the same format as this example:
+                    "{
+                        function:"
+                            parameters:{
+
+                            }   
+                    }".
+                    "}""")
+
+
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(f"Connection closed with error: {e}")
+        except Exception as e:
+            await websocket.send('{"error" : "' + f"An error occurred: {e}" + '"}')
+            print(f"An error occurred: {e}")
+        finally:
+            await websocket.close()
 
     # WebSocket server
     async def websocket_server(self, websocket):
@@ -123,6 +158,7 @@ class Server:
         except Exception as e:
             await websocket.send('{"error" : "' + f"An error occurred: {e}" + '"}')
             print(f"An error occurred: {e}")
+            raise e
         finally:
             await websocket.close()
 
