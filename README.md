@@ -1,4 +1,5 @@
 # Astrolabe 
+Please note that Astrolabe is still in a testing phase and still has many bugs. We are currently working on a second version and plan to release it by the beginning of August. Stay tuned!
 ## Overview
 Astrolabe is a vision processing software designed specifically for FRC teams. Astrolabe has two ends, a server, usually the 
 coprocessor, and a client, usually the driver station or the robot, whichever is connected to the server. The server is 
