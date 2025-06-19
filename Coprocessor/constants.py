@@ -1,10 +1,18 @@
 import numpy as np
 import cv2
 import json
-import os
 
-with open('defaults.json', 'r') as f:
-    defaults = json.load(f)
+defaults = {
+    "horizontal_resolution": 640,
+    "vertical_resolution": 480,
+    "downscale_factor": 4,
+    "tilt_angle": 0.9470884306813201,
+    "horizontal_fov": 1.1868238913561442,
+    "vertical_fov": 0.8901179185171082,
+    "camera_height": 30,
+    "april_tag_width": 0.155,
+    "april_tag_height": 0.155
+  }
 
 CAMERA_HORIZONTAL_RESOLUTION_PIXELS = defaults["horizontal_resolution"]  # This is the resolution of the input image, not necessarily the camera.
 CAMERA_VERTICAL_RESOLUTION_PIXELS = defaults["vertical_resolution"]  # This is the resolution of the input image, not necessarily the camera.
@@ -20,19 +28,18 @@ APRIL_TAG_HEIGHT = defaults["april_tag_height"]  # This is the height of the Apr
 
 IMAGE_FORMAT = "jpg"
 LOCAL_HOST = True
-TEST_MODE_FALLBACK = True
+TEST_MODE_FALLBACK = False
 
 HORIZONTAL_FOCAL_LENGTH = ((CAMERA_HORIZONTAL_RESOLUTION_PIXELS / 2) /
                            np.tan(CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS / 2))
 VERTICAL_FOCAL_LENGTH = (CAMERA_VERTICAL_RESOLUTION_PIXELS / 2) / np.tan(CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS / 2)
 AVG_FOCAL_LENGTH = (HORIZONTAL_FOCAL_LENGTH + VERTICAL_FOCAL_LENGTH) / 2
 
-cv2.CAP_PROP_APERTURE
 
 cv2_props_dict = {
     "aperture": cv2.CAP_PROP_APERTURE,
     "autofocus": cv2.CAP_PROP_AUTOFOCUS,
-    "auto_exposure": cv2.CAP_PROP_AUTO_EXPOSURE,
+    "autoexposure": cv2.CAP_PROP_AUTO_EXPOSURE,
     "backlight": cv2.CAP_PROP_BACKLIGHT,
     "brightness": cv2.CAP_PROP_BRIGHTNESS,
     "buffer_size": cv2.CAP_PROP_BUFFERSIZE,

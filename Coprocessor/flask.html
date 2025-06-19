@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Video Feed</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; flex-direction: column; align-items: center; }
+        img { max-width: 800px; border: 1px solid #ddd; margin: 20px 0; }
+        .controls { margin-bottom: 20px; width: 100%; max-width: 800px; }
+        input[type="text"] { width: 70%; padding: 8px; }
+        button { padding: 8px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Live Video Feed</h1>
+        <div class="controls">
+            <input type="text" id="command" placeholder="Enter command...">
+            <button onclick="sendCommand()">Send</button>
+        </div>
+        <img src="{{ url_for('video_feed') }}" alt="Video Feed">
+    </div>
+    
+    <script>
+        function sendCommand() {
+            const command = document.getElementById('command').value;
+            fetch('/send_command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({command: command})
+            }).then(response => {
+                document.getElementById('command').value = '';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -102,10 +102,10 @@ This function sets the camera parameters for the camera. It takes a dictionary o
 ### Parameters:
 `values`: A dictionary containing the camera parameters to set. The possible parameters are:
 * Height (`"height"`): The height of the camera off the ground. This is used to calculate the distance to the object.
-* Tilt angle (`"tilt_angle"`): The angle of the camera relative to the ground. This is used to calculate the distance to the object. 0 is straight down, pi/2 is straight ahead.
+* Tilt angle (`"tilt_angle_radians"`): The angle of the camera relative to the ground. This is used to calculate the distance to the object. 0 is straight down, pi/2 is straight ahead.
 * Horizontal Resolution (`"horizontal_resolution_pixels"`): The horizontal resolution of the desired image. This cannot exceed the camera's maximum resolution.
 * Vertical Resolution (`"vertical_resolution_pixels"`): The vertical resolution of the desired image. This cannot exceed the camera's maximum resolution.
-* Processing Scale (`"processing_scale"`): The scale to process the image at. This is an integer greater than 1. The resolution of the camera will be divided by this number for processing. 
+* Processing Scale (`"downscale_factor"`): The scale to process the image at. This is an integer greater than 1. The resolution of the camera will be divided by this number for processing. 
 This can help with performance. To calculate the resolution of the image coming from the camera, divide the camera's resolution by the processing scale.
 * Horizontal Field of View (`"horizontal_field_of_view_radians"`): The horizontal field of view of the camera. This is the angle that the camera can see. This is used to calculate the distance to the object. It is measured in radians, not degrees!
 * Vertical Field of View (`"vertical_field_of_view_radians"`): The vertical field of view of the camera. This is the angle that the camera can see. This is used to calculate the distance to the object. It is measured in radians, not degrees! If you do not know the horizontal field of view, see the Client README and client application as it has a built-in calculator using the aspect ratio and the diagonal FOV, which is what companies usually market.

@@ -1,5 +1,8 @@
-*.json
 ip_address.txt
+camera-params.json
+params.json
+/RosWS
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

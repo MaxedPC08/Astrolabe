@@ -3,7 +3,7 @@ import os
 import psutil
 import multiprocessing
 import subprocess
-from constants import TEST_MODE_FALLBACK
+from constants import TEST_MODE_FALLBACK, TEST_MODE_FALLBACK
 
 def name_valid_cams():
     try:
@@ -55,25 +55,30 @@ def start_server_with_affinity(server, cpu_core):
 
 if __name__ == "__main__":
     cams_list = name_valid_cams()
-    print(f"Found {len(cams_list)} camera(s)")
-
-    if len(cams_list) == 0:
-        server = Server(-2, "No-Camera-Fallback-Host", 50000)
-        servers.append(server)
-        processes.append(start_server_with_affinity(server, 0))
-
+    print(f"Found {len(cams_list)} camera(s)")\
+    
     servers = []
     processes = []
 
-    if cams_list[0][0] == -1:
-        server = Server(-1, "Local-Image-Test-Mode", 50000)
+    host_data = []
+
+    if cams_list[0][0] == -1 and TEST_MODE_FALLBACK:
+        host_data.append({"port": 50001, "host_name": "Local-Image-Test-Mode", "cam_index": -1})
+        server = Server(-1, "Local-Image-Test-Mode", 50001)
         servers.append(server)
         processes.append(start_server_with_affinity(server, 0))
     else:
         for i, (camera_index, sn) in enumerate(cams_list):
-            server = Server(camera_index, sn, 50000 + i)
+            host_data.append({"port": 50001 + i, "host_name": sn, "cam_index": camera_index})
+            server = Server(camera_index, sn, 50001 + i)
             servers.append(server)
             processes.append(start_server_with_affinity(server, i % os.cpu_count()))
+
+
+    host_data.append({"port": 5000, "host_name": "Global", "cam_index": -2})
+    server = Server(-2, "Global", 50000)
+    servers.append(server)
+    processes.append(start_server_with_affinity(server, 0))
 
     for p in processes:
         p.join()
