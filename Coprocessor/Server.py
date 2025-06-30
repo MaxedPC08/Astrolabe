@@ -18,9 +18,9 @@ parameters:{
 """
 
 class Server:
-    def __init__(self, name, serial_number, port=50000):
+    def __init__(self, name, serial_number, port, host_data=None):
         # Get the IP address of the Ethernet interface
-        self.functional_object = FunctionalObject(name, serial_number)
+        self.functional_object = FunctionalObject(name, serial_number, host_data=host_data)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()
         print(f"Ethernet IP address: {self.ethernet_ip}")

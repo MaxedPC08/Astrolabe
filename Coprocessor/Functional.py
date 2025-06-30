@@ -78,14 +78,13 @@ def get_raspberry_pi_performance():
         "cpu_usage": cpu_usage,
         "memory_usage": memory_usage,
         "disk_usage": disk_usage,
-        "system_info": {
-            "system": system_info.system,
-            "node_name": system_info.node,
-            "release": system_info.release,
-            "version": system_info.version,
-            "machine": system_info.machine,
-            "processor": system_info.processor
-        }
+        "system": system_info.system,
+        "node_name": system_info.node,
+        "release": system_info.release,
+        "version": system_info.version,
+        "machine": system_info.machine,
+        "processor": system_info.processor
+        
     }
 
     return performance_info
@@ -182,7 +181,7 @@ class FunctionalObject:
     TODO: Implement Scaling
     TODO: Implement time for Apriltag
     """
-    def __init__(self, name, serial_number):
+    def __init__(self, name, serial_number, host_data=None):
         # This dictionary contains all the commands availible on the coprocessor. If you add a function, make sure to
         # add it to this dictionary.
         self.functionDict = {
@@ -195,13 +194,17 @@ class FunctionalObject:
             "piece": self.piece,
             "apriltag": self.apriltag,
             "info": self.info,
+            "hardware_info": self.hardware_info,
         }
 
         self.name = name
 
         if name == -2:
+            self.host_data = host_data
             self.functionDict = {
-                "hardware_info": self.info,
+                "hardware_info": self.hardware_info,
+                "function_info": self.function_info,
+                "camera_info": self.camera_info
             }
             return
 
@@ -301,8 +304,7 @@ class FunctionalObject:
         self.locater = Locater(self.camera_horizontal_resolution_pixels,
                                self.camera_vertical_resolution_pixels,
                                self.tilt_angle_radians, self.camera_height,
-                               self.horizontal_field_of_view, self.vertical_field_of_view,
-                               self.downscale_factor)        
+                               self.horizontal_field_of_view, self.vertical_field_of_view)        
     
     def get_image(self, rec_level=0):
         if self.name == -1:
@@ -349,9 +351,10 @@ class FunctionalObject:
         except Exception as e:
             await websocket.send('{"error": "' + str(e) + '"}')
             return
-
+        
+        img = cv2.resize(img, (img.shape[1] // self.downscale_factor, img.shape[0] // self.downscale_factor))
         image_array = np.asarray(img)
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality*100]
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
         _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
     
         jpg_string = base64.b64encode(encoded_img).decode('utf-8')
@@ -422,7 +425,7 @@ class FunctionalObject:
 
             vertical_correspondant = (np.tan(self.vertical_field_of_view / 2.0) /
                                         (self.camera_vertical_resolution_pixels / 2.0))
-            max_vertical_angle = self.camera_vertical_resolution_pixels / self.downscale_factor * vertical_correspondant
+            max_vertical_angle = self.camera_vertical_resolution_pixels * vertical_correspondant
 
             angle_radians_vert = ((max_vertical_angle - tag["center"][1] * (np.tan(self.vertical_field_of_view / 2.0) /
                                      (self.camera_vertical_resolution_pixels / 2.0))) +
@@ -436,6 +439,7 @@ class FunctionalObject:
 
         if return_image:
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (img.shape[1] // self.downscale_factor, img.shape[0] // self.downscale_factor))
 
             for tag in tags:
                 # Visualization
@@ -444,7 +448,7 @@ class FunctionalObject:
                     cv2.circle(img, (int(corner[0]), int(corner[1])), 3, (0, 255, 0), -1)
 
             image_array = np.asarray(img)
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality*100]
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
             _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
         
             jpg_string = base64.b64encode(encoded_img).decode('utf-8')
@@ -590,6 +594,8 @@ class FunctionalObject:
         }
         for key in values_dict.keys():
             try:
+                if json_vals[key] == '':
+                    continue
                 values_dict[key] = json_vals[key]
             except KeyError:
                 pass
@@ -622,6 +628,8 @@ class FunctionalObject:
 
         for key in cv2_props_dict:
             try:
+                if json_vals[key] == '':
+                    continue
                 self.camera.set(cv2_props_dict[key], float_we(json_vals[key], key))
                 new_params[key] = float_we(json_vals[key], key)
             except KeyError:
@@ -664,11 +672,6 @@ class FunctionalObject:
         with open('camera-params.json', 'w') as f:
             json.dump(camera_params, f, indent=4)
 
-        self.locater = Locater(self.camera_horizontal_resolution_pixels,
-                                 self.camera_vertical_resolution_pixels,
-                                 self.tilt_angle_radians, self.camera_height,
-                                 self.horizontal_field_of_view, self.vertical_field_of_view,
-                                 self.downscale_factor)
         await self.info(websocket)
 
 
@@ -685,15 +688,15 @@ class FunctionalObject:
             await websocket.send('{"error": "Failed to capture image"}')
             return
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (self.camera_horizontal_resolution_pixels // self.processing_scale,
-                               self.camera_vertical_resolution_pixels // self.processing_scale))
         out_image = center = width = coefficient = jpg_string = None
         if return_image:
             out_image, center, width, coefficient = self.locater.locate(
                 img)
+            
+            out_image = cv2.resize(out_image, (out_image.shape[0] // self.downscale_factor, out_image.shape[1] // self.downscale_factor))
 
             image_array = np.asarray(out_image)
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality*100]
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
             _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
         
             jpg_string = base64.b64encode(encoded_img).decode('utf-8')
@@ -738,6 +741,12 @@ class FunctionalObject:
             "active_color": self.locater.active_color
         }
 
+        for key in cv2_props_dict:
+            try:
+                info_dict[key] = self.camera.get(cv2_props_dict[key])
+            except:
+                pass
+
         await websocket.send(json.dumps(info_dict))
     
     async def hardware_info(self, websocket, *args, **kwargs):
@@ -746,7 +755,7 @@ class FunctionalObject:
 
     async def function_info(self, websocket, *args, **kwargs):
         info = {"description":"The command will return a lot of information about the current camera setup.",
-                     "arguments": [],
+                     "arguments": {},
                      "returns":
                         {"cam_name":{"type":"string",
                                      "description":"The name of the camera. This is the path to the camera.",
@@ -824,6 +833,50 @@ class FunctionalObject:
                                      "list that the object detection model is currently looking for.",
                                      "guarantee":True},
                         
+                     }}
+        
+        hardware_info = {"description":"The command will return a lot of information about the current camera setup.",
+                     "arguments": {},
+                     "returns":
+                        {"temperature":{"type":"float",
+                                     "description":"Temperature of CPU",
+                                     "guarantee":True},
+
+                        "cpu_usage":{"type":"float",
+                                     "description":"The amount of the CPU being used.",
+                                     "guarantee":True},
+
+                        "memory_usage":{"type":"float",
+                                     "description":"The amount of memory being used.",
+                                     "guarantee":True},
+                        
+                        "disk_usage":{"type":"float",
+                                     "description":"The disk usage.",
+                                     "guarantee":True},
+                        
+                        "system":{"type":"string",
+                                     "description":"What OS the system is running.",
+                                     "guarantee":False},
+                        
+                        "node_name":{"type":"string",
+                                     "description":"Name of the node.",
+                                     "guarantee":False},
+
+                        "release":{"type":"string",
+                                     "description":"What release the OS is on at this point.",
+                                     "guarantee":False},
+                        
+                        "version":{"type":"string",
+                                     "description":"What version of the os currently running.",
+                                     "guarantee":False},
+                                     
+                        "machine":{"type":"string",
+                                     "description":"The architecture of the CPU.",
+                                     "guarantee":False},
+
+                        "processor":{"type":"float",
+                                     "description":"More detailed information about the CPU.",
+                                     "guarantee":True}
                      }}
         
         raw = {"description":"The raw command will return a the image as a stringified json image. This command will trigger the server to"
@@ -1098,7 +1151,11 @@ class FunctionalObject:
                                      
                         "returns":info["returns"]}
         
-        websocket.send(json.dumps({
+        warning = {"warning":"fake_image_string"}
+        
+        await websocket.send(json.dumps({
+            "warning": warning,
+            "hardware": hardware_info,
             "raw": raw,
             "switch_color": switch_color,
             "save_color": save_color,
@@ -1110,20 +1167,8 @@ class FunctionalObject:
             "info": info,
         }))
 
-        return {
-            "raw": raw,
-            "switch_color": switch_color,
-            "save_color": save_color,
-            "add_color": add_color,
-            "delete_color": delete_color,
-            "set_camera_params": set_camera_params,
-            "piece": piece,
-            "apriltag": apriltag,
-            "info": info,
-        }
-
-
-
+    async def camera_info(self, websocket, *args, **kwargs):
+        await websocket.send(json.dumps(self.host_data))
 
     def __del__(self):
         # Cleanup code

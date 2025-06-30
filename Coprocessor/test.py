@@ -6,8 +6,23 @@ import numpy as np
 import cv2
 import time
 
+def stringify_response(json_object):
+    output = []
+    for key in json_object.keys():
+        output.append(stringify_response(json_object[key]))
+
+def print_dict(json_object):
+    for key, value in json_object.items():
+        if isinstance(value, dict):
+            print(f"{key}:")
+            for sub_key, sub_value in value.items():
+                print(f"  {sub_key}: {sub_value}")
+        else:
+            print(f"{key}: {value}")
+
+
 async def websocket_client():
-    uri = "ws://127.0.0.1:50000"  # replace with your websocket server url
+    uri = "ws://127.0.0.1:50001"  # replace with your websocket server url
     async with websockets.connect(uri) as websocket:
         start_time = time.time()
         message = '{"function":"apriltag","return_image":true}' # input("Enter your message: ")
