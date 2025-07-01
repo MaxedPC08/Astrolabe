@@ -1,53 +1,67 @@
 import numpy as np
 import cv2
+import json
 
-CAMERA_HORIZONTAL_RESOLUTION_PIXELS = 640  # This is the resolution of the input image, not necessarily the camera.
-CAMERA_VERTICAL_RESOLUTION_PIXELS = 480  # This is the resolution of the input image, not necessarily the camera.
-PROCESSING_SCALE = 4
-TILT_ANGLE_RADIANS = 2*np.pi/6-0.1  # This is the tilt of the camera. 0 is looking straight down, pi/2 is looking
+defaults = {
+    "horizontal_resolution": 640,
+    "vertical_resolution": 480,
+    "downscale_factor": 4,
+    "tilt_angle": 0.9470884306813201,
+    "horizontal_fov": 1.1868238913561442,
+    "vertical_fov": 0.8901179185171082,
+    "camera_height": 30,
+    "april_tag_width": 0.155,
+    "april_tag_height": 0.155
+  }
+
+CAMERA_HORIZONTAL_RESOLUTION_PIXELS = defaults["horizontal_resolution"]  # This is the resolution of the input image, not necessarily the camera.
+CAMERA_VERTICAL_RESOLUTION_PIXELS = defaults["vertical_resolution"]  # This is the resolution of the input image, not necessarily the camera.
+DOWNSCALE_FACTOR = defaults["downscale_factor"]  # This is the factor by which to downscale the image. 1 means no downscaling.
+TILT_ANGLE_RADIANS = defaults["tilt_angle"]  # This is the tilt of the camera. 0 is looking straight down, pi/2 is looking
 # straight ahead
-CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS = 68 * np.pi / 180  # This is the field of view of the camera horizontally
-CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS = 51 * np.pi / 180  # This is the field of view of the camera vertically
-CAMERA_HEIGHT = 30  # This is the height of the camera in whatever units you want the distance to be calculated in
+CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS = defaults["horizontal_fov"]  # This is the field of view of the camera horizontally
+CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS = defaults["vertical_fov"]  # This is the field of view of the camera vertically
+CAMERA_HEIGHT = defaults["camera_height"]  # This is the height of the camera in whatever units you want the distance to be calculated in
 
-APRIL_TAG_WIDTH = 0.155
-APRIL_TAG_HEIGHT = 0.155
+APRIL_TAG_WIDTH = defaults["april_tag_width"]  # This is the width of the AprilTag in meters
+APRIL_TAG_HEIGHT = defaults["april_tag_height"]  # This is the height of the AprilTag in meters
 
+IMAGE_FORMAT = "jpg"
 LOCAL_HOST = True
+TEST_MODE_FALLBACK = False
 
 HORIZONTAL_FOCAL_LENGTH = ((CAMERA_HORIZONTAL_RESOLUTION_PIXELS / 2) /
                            np.tan(CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS / 2))
 VERTICAL_FOCAL_LENGTH = (CAMERA_VERTICAL_RESOLUTION_PIXELS / 2) / np.tan(CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS / 2)
 AVG_FOCAL_LENGTH = (HORIZONTAL_FOCAL_LENGTH + VERTICAL_FOCAL_LENGTH) / 2
 
-cv2.CAP_PROP_APERTURE
 
 cv2_props_dict = {
-    "CAP_PROP_APERTURE": cv2.CAP_PROP_APERTURE,
-    "CAP_PROP_AUTOFOCUS": cv2.CAP_PROP_AUTOFOCUS,
-    "CAP_PROP_AUTO_EXPOSURE": cv2.CAP_PROP_AUTO_EXPOSURE,
-    "CAP_PROP_BACKLIGHT": cv2.CAP_PROP_BACKLIGHT,
-    "CAP_PROP_BRIGHTNESS": cv2.CAP_PROP_BRIGHTNESS,
-    "CAP_PROP_BUFFERSIZE": cv2.CAP_PROP_BUFFERSIZE,
-    "CAP_PROP_CONTRAST": cv2.CAP_PROP_CONTRAST,
-    "CAP_PROP_CONVERT_RGB": cv2.CAP_PROP_CONVERT_RGB,
-    "CAP_PROP_EXPOSURE": cv2.CAP_PROP_EXPOSURE,
-    "CAP_PROP_FOCUS": cv2.CAP_PROP_FOCUS,
-    "CAP_PROP_FPS": cv2.CAP_PROP_FPS,
-    "CAP_PROP_FRAME_HEIGHT": cv2.CAP_PROP_FRAME_HEIGHT,
-    "CAP_PROP_FRAME_WIDTH": cv2.CAP_PROP_FRAME_WIDTH,
-    "CAP_PROP_GAIN": cv2.CAP_PROP_GAIN,
-    "CAP_PROP_GAMMA": cv2.CAP_PROP_GAMMA,
-    "CAP_PROP_HUE": cv2.CAP_PROP_HUE,
-    "CAP_PROP_ISO_SPEED": cv2.CAP_PROP_ISO_SPEED,
-    "CAP_PROP_POS_FRAMES": cv2.CAP_PROP_POS_FRAMES,
-    "CAP_PROP_POS_MSEC": cv2.CAP_PROP_POS_MSEC,
-    "CAP_PROP_SATURATION": cv2.CAP_PROP_SATURATION,
-    "CAP_PROP_SHARPNESS": cv2.CAP_PROP_SHARPNESS,
-    "CAP_PROP_TEMPERATURE": cv2.CAP_PROP_TEMPERATURE,
-    "CAP_PROP_TRIGGER": cv2.CAP_PROP_TRIGGER,
-    "CAP_PROP_WHITE_BALANCE_BLUE_U": cv2.CAP_PROP_WHITE_BALANCE_BLUE_U,
-    "CAP_PROP_WHITE_BALANCE_RED_V": cv2.CAP_PROP_WHITE_BALANCE_RED_V,
-    "CAP_PROP_ZOOM": cv2.CAP_PROP_ZOOM
+    "aperture": cv2.CAP_PROP_APERTURE,
+    "autofocus": cv2.CAP_PROP_AUTOFOCUS,
+    "autoexposure": cv2.CAP_PROP_AUTO_EXPOSURE,
+    "backlight": cv2.CAP_PROP_BACKLIGHT,
+    "brightness": cv2.CAP_PROP_BRIGHTNESS,
+    "buffer_size": cv2.CAP_PROP_BUFFERSIZE,
+    "contrast": cv2.CAP_PROP_CONTRAST,
+    "convert_rgb": cv2.CAP_PROP_CONVERT_RGB,
+    "exposure": cv2.CAP_PROP_EXPOSURE,
+    "focus": cv2.CAP_PROP_FOCUS,
+    "fps": cv2.CAP_PROP_FPS,
+    "frame_height": cv2.CAP_PROP_FRAME_HEIGHT,
+    "frame_width": cv2.CAP_PROP_FRAME_WIDTH,
+    "gain": cv2.CAP_PROP_GAIN,
+    "gamma": cv2.CAP_PROP_GAMMA,
+    "hue": cv2.CAP_PROP_HUE,
+    "iso_speed": cv2.CAP_PROP_ISO_SPEED,
+    "position_frames": cv2.CAP_PROP_POS_FRAMES,
+    "position_milliseconds": cv2.CAP_PROP_POS_MSEC,
+    "saturation": cv2.CAP_PROP_SATURATION,
+    "sharpness": cv2.CAP_PROP_SHARPNESS,
+    "temperature": cv2.CAP_PROP_TEMPERATURE,
+    "trigger": cv2.CAP_PROP_TRIGGER,
+    "white_balance_blue_u": cv2.CAP_PROP_WHITE_BALANCE_BLUE_U,
+    "white_balance_red_v": cv2.CAP_PROP_WHITE_BALANCE_RED_V,
+    "zoom": cv2.CAP_PROP_ZOOM
 }
 

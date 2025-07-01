@@ -1,0 +1,9 @@
+[
+    {
+        "red": 255,
+        "green": 255,
+        "blue": 255,
+        "difference": 50,
+        "blur": 5
+    }
+]

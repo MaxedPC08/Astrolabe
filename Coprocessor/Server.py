@@ -4,13 +4,23 @@ import inspect
 from Functional import FunctionalObject
 import subprocess
 import constants
+import json
 
+"""
+Message format:
 
+{
+function:"
+parameters:{
+
+}
+}
+"""
 
 class Server:
-    def __init__(self, name, serial_number, port=50000):
+    def __init__(self, name, serial_number, port, host_data=None):
         # Get the IP address of the Ethernet interface
-        self.functional_object = FunctionalObject(name, serial_number)
+        self.functional_object = FunctionalObject(name, serial_number, host_data=host_data)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()
         print(f"Ethernet IP address: {self.ethernet_ip}")
@@ -39,8 +49,65 @@ class Server:
         except Exception as e:
             raise RuntimeError(f"Failed to get Ethernet IP address: {e}")
 
-    # WebSocket server
     async def websocket_server(self, websocket):
+        """
+        This function is the main function for the WebSocket server.
+        It receives images from the client and sends them back.
+        :param websocket:
+        :param path:
+        :return:
+        """
+        try:
+            async for message in websocket:
+                if message == "ping":
+                    websocket.send("pong")
+                    return
+                try:
+                    message_json = json.loads(message.replace('\'', '"'))
+                
+                except Exception as e:
+                    print(f"Error: Could not parse json message. Note Astrolabed has moved away from our previous api, check the documentation for our new version."
+                          f"The full error is {e}")
+                    await websocket.send(json.dumps({"error":f"Could not parse json message. Note Astrolabed has moved away from our previous api, "
+                                                     f"check the documentation for our new version.\n\nThe full error is {e}"}))
+                    return
+                try:
+                    function_string = message_json["function"]
+                    del message_json["function"]
+                except KeyError:
+                    print(f"Error: Could not parse json message. Note Astrolabed has moved away from our previous api, check the documentation for our new version."
+                          f"The full error is {e}")
+                    await websocket.send(json.dumps({"error":f"No key \"function\" in request. Please check the documentation for our new version.\n\nThe full error is {e}"}))
+                    return
+
+                try:
+                    function_call = self.functional_object.functionDict[function_string]
+                except KeyError as e:
+                    print(f"Error: Function {function_string} could not be found. Please check the docs for all available functions and their usages."
+                          f"The full error is {e}")
+                    await websocket.send(json.dumps({"error":f"Function {function_string} could not be found. Please check the docs for all available functions and their usages.\n\nThe full error is {e}"}))
+                    return
+                
+                try:
+                    await function_call(websocket, **message_json)
+                except Exception as e:
+                    print(f"Error: an unexpected error occurred. {e}")
+                    await websocket.send(json.dumps({"error":f"An unexpected error occurred. {e}"}))
+                    raise e
+                    return
+
+
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(f"Connection closed with error: {e}")
+        except Exception as e:
+            await websocket.send('{"error" : "' + f"An error occurred: {e}" + '"}')
+            print(f"An error occurred: {e}")
+            raise e
+        finally:
+            await websocket.close()
+
+    # WebSocket server
+    async def websocket_server_legacy(self, websocket):
         """
         This function is the main function for the WebSocket server.
         It receives images from the client and sends them back.
@@ -103,6 +170,7 @@ class Server:
                         except Exception as e:
                             print(f"Error: {e}")
                             await websocket.send('{"error" : "' + f"{e}" + '"}')
+                            raise e
 
                 try:
                     if inspect.iscoroutinefunction(self.functional_object.functionDict[split_message[0]]):
@@ -113,6 +181,7 @@ class Server:
                 except ValueError as e:
                     print(f"Error: {e}")
                     await websocket.send('{"error" : "' + f"{e}" + '"}')
+                    raise e
                 except KeyError as e:
                     await websocket.send('{"error" : "' + f"Error: Function {split_message[0]} not found."
                                          f" Please make sure that the function name is spelled correctly and that it "
@@ -123,6 +192,7 @@ class Server:
         except Exception as e:
             await websocket.send('{"error" : "' + f"An error occurred: {e}" + '"}')
             print(f"An error occurred: {e}")
+            raise e
         finally:
             await websocket.close()
 

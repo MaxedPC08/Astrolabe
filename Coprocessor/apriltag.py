@@ -350,9 +350,8 @@ library used by ctypes.
             self.libc.apriltag_detector_destroy(self.tag_detector)
 
     def detect(self, img, return_image=False):
-        assert len(img.shape) == 2
-        assert img.dtype == np.uint8
-
+        """assert len(img.shape) == 2
+        assert img.dtype == np.uint8"""
         c_img = self._convert_image(img)
         detections = self.libc.apriltag_detector_detect(self.tag_detector, c_img)
         apriltag = ctypes.POINTER(_ApriltagDetection)()

@@ -1,12 +1,12 @@
 # Astrolabe 
-Please note that Astrolabe is still in a testing phase and still has many bugs. We are currently working on a second version and plan to release it by the beginning of August. Stay tuned!
+Astrolabe 2 is out!!! For installation instructions, please see the [Installation](#installation) section below.
+
 ## Overview
 Astrolabe is a vision processing software designed specifically for FRC teams. Astrolabe has two ends, a server, usually the 
 coprocessor, and a client, usually the driver station or the robot, whichever is connected to the server. The server is 
 responsible for processing the image and sending the results to the client. The client is responsible for interacting 
 with the server in a UI. The server and client communicate over an ethernet connection. The server is started by 
-running the [main.py](Coprocessor/main.py) script in the `Coprocessor` directory. The client is started by running [main.py](Client/main.py) script in the `Client` directory. The server hosts a 
-websocket server for each camera connected to it, starting with port 50000. Each camera has its own process and 
+running the [main.py](Coprocessor/main.py) script in the `Coprocessor` directory. Each camera has its own process and 
 handles requests independently. There is no main socket to send general commands to. The client will connect to the 
 server and send bash-style commands to the server. The server will then reply with either a bytes object or a json 
 string.
@@ -43,10 +43,8 @@ string.
   * The server and client are both written in Python, so they can be run on any platform that supports Python. This includes Windows, Mac, and Linux.
   * The client has a `requirements.txt` file that lists all of the dependencies that need to be installed. This makes it easy to install all of the required libraries with a single command.
   * The server has a bash script that installs all of the required dependencies. This makes it easy to get the server up and running, even if you are not familiar with Python.
-  * The client has a `README.md` file that explains how to use the client. This makes it easy to get started with the client, even if you are not familiar with the code.
   * The server has a `README.md` file that explains how to use the server. This makes it easy to get started with the server, even if you are not familiar with the code.
 
 ## Installation
 Installations for the coprocessor and the client are different. The instructions for the coprocessor are in the
-[Coprocessor's README file](Coprocessor/README.md). The instructions for the client are in the 
-[Client's README file](Client/README.md). The instructions for the robot code implimentation are in the [RoboRIO README file](RoboRIO/README.md).
+[Coprocessor's README file](Coprocessor/README.md). From there, to run the app, simply insert a USB drive into the coprocessor, connect a camera, and connect to the ip address of the coprocessor! This is configured specifically for the default FRC VH109 Radio, so you will have the best luck with that.

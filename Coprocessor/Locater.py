@@ -3,7 +3,7 @@ import numpy as np
 import json
 from constants import (CAMERA_HORIZONTAL_RESOLUTION_PIXELS, CAMERA_VERTICAL_RESOLUTION_PIXELS, TILT_ANGLE_RADIANS,
                        CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT,
-                       PROCESSING_SCALE)
+                       DOWNSCALE_FACTOR)
 
 
 class Locater:
@@ -14,8 +14,7 @@ class Locater:
                  camera_vertical_resolution_pixels=CAMERA_VERTICAL_RESOLUTION_PIXELS,
                  tilt_angle_radians=TILT_ANGLE_RADIANS, camera_height=CAMERA_HEIGHT,
                  camera_horizontal_field_of_view_radians=CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS,
-                 camera_vertical_field_of_view_radians=CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS,
-                 processing_scale=PROCESSING_SCALE):
+                 camera_vertical_field_of_view_radians=CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS):
         """
         This function initializes the Locater class.
         It reads the parameters from the params.json file and sets the target color.
@@ -55,14 +54,13 @@ class Locater:
         self.camera_height = camera_height
         self.camera_horizontal_field_of_view_radians = camera_horizontal_field_of_view_radians
         self.camera_vertical_field_of_view_radians = camera_vertical_field_of_view_radians
-        self.processing_scale = processing_scale
 
         self.res_corresp_horizontal = (np.tan(self.camera_horizontal_field_of_view_radians / 2.0) /
-                                       (self.camera_horizontal_resolution_pixels / self.processing_scale / 2.0))
+                                       (self.camera_horizontal_resolution_pixels / 2.0))
         self.res_corresp_vertical = (np.tan(self.camera_vertical_field_of_view_radians / 2.0) /
-                                     (self.camera_vertical_resolution_pixels / self.processing_scale / 2.0))
-        self.max_vertical_angle = self.camera_vertical_resolution_pixels / self.processing_scale * self.res_corresp_vertical
-        self.max_horizontal_angle = self.camera_horizontal_resolution_pixels / self.processing_scale * self.res_corresp_horizontal
+                                     (self.camera_vertical_resolution_pixels / 2.0))
+        self.max_vertical_angle = self.camera_vertical_resolution_pixels * self.res_corresp_vertical
+        self.max_horizontal_angle = self.camera_horizontal_resolution_pixels * self.res_corresp_horizontal
 
     def locate(self, image, blur=-1, dif=-1):
         """
@@ -111,12 +109,33 @@ class Locater:
 
         # Process the image and make it viewer - worthy
         # Get the indices where image equals 1
-        indices = np.where(image == -new_color[0])
+        indices = np.asarray(np.where(image == -new_color[0]))
 
-        # Calculate the center, left, and right directly from the indices
         center = np.mean(indices, axis=1)
         left = np.min(indices[1])
         right = np.max(indices[1])
+        height = np.max(indices[0]) - np.min(indices[0])
+        width = np.max(indices[1]) - np.min(indices[1])
+
+        if len(indices[0]) > 1:
+            # Perform linear regression to find the best fit line
+            x_coords = indices[1, :]
+            y_coords = indices[0, :]
+            x_mean = np.mean(x_coords)
+            y_mean = np.mean(y_coords)
+            numerator = np.sum((x_coords - x_mean) * (y_coords - y_mean))
+            denominator = np.sum((x_coords - x_mean) ** 2)
+            slope = numerator / denominator
+
+            if height > width:
+                slope = -1 / slope if slope != 0 else float('inf')
+
+            # Calculate the angle of the line in radians
+        else:
+            slope = 0
+
+        # Calculate the center, left, and right directly from the indices
+
 
         image += 0.334
         image = image_copy * image[:, :, np.newaxis]
@@ -132,7 +151,7 @@ class Locater:
         except:
             pass
 
-        return image, center, right-left
+        return image, center, right-left, slope
 
     def locate_stripped(self, image, blur=-1, dif=-1):
         """
@@ -218,5 +237,6 @@ class Locater:
 
         angle_radians_vert = ((self.max_vertical_angle - center[0] * self.res_corresp_vertical) +
                               self.tilt_angle_radians - self.camera_vertical_field_of_view_radians * 0.5)
+        print(np.tan(angle_radians_vert), self.camera_height)
         dist = (np.tan(angle_radians_vert) * self.camera_height) / np.cos(angle_radians_horiz)
         return dist, angle_radians_horiz, angle_radians_vert
