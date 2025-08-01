@@ -46,7 +46,9 @@ string.
   * The installation script will install all the necessary dependencies and set up the server to run automatically on boot.
   * The client is a simple web interface that can be accessed from any device on the same network as the coprocessor. Just connect to the coprocessor's IP address and you are ready to go!
 
-
 ## Installation
-Installations for the coprocessor and the client are different. The instructions for the coprocessor are in the
-[Coprocessor's README file](Coprocessor/README.md). From there, to run the app, simply insert a USB drive into the coprocessor, connect a camera, and connect to the ip address of the coprocessor! This is configured specifically for the default FRC VH109 Radio, so you will have the best luck with that.
+Install the required dependencies by running pip install -r requirements.txt in the Coprocessor directory. Also, install this apriltag library by Matt Zucker in the Coprocessor directory. Follow all the instructions in the README of the apriltag library to install it, including installing it system-wide. We highly recommend installing Astrolabe in a virtual environment to avoid conflicts with other python packages. To install Astrolabe automatically on a fresh Raspberry Pi, run the install.sh script in the Coprocessor directory using the following command:
+
+```wget -O - https://raw.githubusercontent.com/MaxedPC08/Astrolabe/master/Coprocessor/install.sh | sudo bash```
+
+ From there, to run the app, simply insert a USB drive into the coprocessor, connect a camera, and connect to the ip address of the coprocessor! This is configured specifically for the default FRC VH109 Radio, so you will have the best luck with that.
