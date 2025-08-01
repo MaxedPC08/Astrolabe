@@ -1,10 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Astrolabe 2.0</title>
+    <title>Astrolabe</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0px; width:100%; height:100%; background: #333; color:#ddd}
-        .container { display: flex; flex-direction: column; align-items: center; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0px; 
+            padding: 0;
+            width: 100%; 
+            height: 100vh; /* Use full viewport height */
+            background: #333; 
+            color: #ddd;
+            overflow: hidden; /* Prevent body scrolling */
+        }
+
+        .container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            height: 100vh; /* Full viewport height */
+        }
         .camera-selector { 
             margin-bottom: 15px; 
             width: 100%; 
@@ -14,6 +29,39 @@
             gap: 10px;
         }
         img { max-width: 800px; border: 1px solid #ddd; margin: 20px 0; }
+        .table-container {
+            overflow-y: auto;
+            margin-bottom: 20px;
+            flex: 1; /* Take up remaining space in column */
+            overflow-y: auto;            border-radius: 4px;
+            min-height: 0; /* Allow scrolling */
+        }
+
+        .table-container table {
+            margin: 0;
+        }
+        /* Make the main content area flex and fill remaining space */
+        .main-content {
+            display: flex;
+            width: 100vw;   /* Use full viewport width */
+            flex: 1;
+            min-height: 0;
+            box-sizing: border-box;
+        }
+
+        /* Make each column fill the full height */
+        .column {
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* Full height of parent */
+        }
+        .column.center {
+            flex: 2;
+            min-width: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
         .controls {margin-bottom: 20px;
                     width: 100%;
                     max-width: 800px;
@@ -25,12 +73,11 @@
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 10px;
-                    padding-top: 10px;
-                    padding-bottom: 10px
+                    gap: 5px;
+                    padding: 5px
                 }
         input[type="text"] { width: 70%; padding: 8px; background-color: #555; color: #ddd; border-style: solid;}
-        button { padding: 8px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        button { padding: 8px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 10px;}
         .camera-selector { 
             margin-bottom: 15px; 
             width: 100%; 
@@ -42,23 +89,37 @@
         }
         .camera-selector input[type="text"] { 
             width: 250px; 
-            padding: 8px; 
+            padding: 8px;
+            border-style: solid; 
         }
         .camera-selector input[type="number"] { 
             width: 80px; 
             padding: 8px; 
+            background-color: #555; 
+            color: #ddd;
+            border-style: solid;
         }
-        .fps-display { 
-            position: absolute; 
-            top: 10px; 
-            left: 10px; 
+
+        .divider {
+            width: 1px;
+            background: #888;
+            height: 100%;
+            margin: 0 0px;
+            align-self: stretch;
+        }
+        .fps-display {
+            position: absolute;
+            top: 30px;
+            left: 10px;
             background-color: rgba(0,0,0,0.6);
-            color: white; 
-            padding: 5px; 
+            color: white;
+            padding: 5px;
             border-radius: 3px;
+            z-index: 10;
         }
         .video-container {
             position: relative;
+            display: inline-block;
         }
         .status {
             margin-top: 10px;
@@ -82,7 +143,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Astrolabe 2.0</h1>
+        <h1>Astrolabe</h1>
         <div class="camera-selector">
             <label for="ip-address">IP Address:</label>
             <input type="text" id="ip-address" placeholder="Enter IP address" value="127.0.0.1">
@@ -91,49 +152,54 @@
             <button onclick="connectCamera()">Connect</button>
         </div>
         <div id="status-message" class="status"></div>
-        <div style="display: flex; width: 100%;">
-            <div style="flex: 1; width: 100%; margin-right: 30px; margin-left: 30px;">
+        <div class="main-content">
+            <div class="column" style="flex: 1; width: 100%; margin-right: 30px; margin-left: 30px;">
                 <h3>Command Builder</h3>
                 <div class="controls">
-                    <select id="function-select" style="margin-bottom:10px;" onchange="populateFunctionTable()"></select>
+                    <select id="function-select" style="margin-bottom:0px; background-color: #555; color: #ddd;" onchange="populateFunctionTable()"></select>
                     <label style="display: flex; align-items: center; gap: 6px;">
                         <input type="checkbox" id="repeat-toggle" checked>
                         Repeat
                     </label>
                     <button onclick="sendTableCommand()">Send</button>
                 </div>
-                <table id="function-table" border="1" style="width:100%;border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th>Parameter</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <div class="table-container">
+                    <table id="function-table" border="1" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div style="flex: 2; display: flex; justify-content: center;">
+            <div class="divider"></div>
+            <div class="column center" style="flex: 2; display: flex; justify-content: center;">
                 <div class="video-container">
                     <img src="{{ url_for('video_feed') }}" alt="Video Feed">
                     <div class="fps-display" id="fps-counter">FPS: 0</div>
                 </div>
             </div>
-            <div style="flex: 1; margin-right: 30px; margin-left: 30px;">
+            <div class="divider"></div>
+            <div class="column" style="flex: 1; margin-right: 30px; margin-left: 30px;">
                 <h3>Output Data</h3>
-                <table id="output-table" border="1" style="width:100%;border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th>Field</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <div class="table-container">
+                    <table id="output-table" border="1" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
-    
     <script>
         let currentIp = "127.0.0.1";
         let currentCameraPort = 50001;

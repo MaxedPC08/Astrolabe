@@ -1,27 +1,26 @@
+import time
 from Server import Server
 import os
 import psutil
 import multiprocessing
 import subprocess
 import sys
-from constants import TEST_MODE_FALLBACK, TEST_MODE_FALLBACK
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from Webpage.app import run_app
 import shutil
 
-def get_mount_point(device_path):
-    for part in psutil.disk_partitions():
-        if part.device == device_path:
-            return part.mountpoint
-    return None
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Coprocessor.CameraFunctional import CameraFunctionalObject
+from Coprocessor.GlobalFunctional import GlobalFunctionalObject
+from Coprocessor.Reinforcement.ControllerFunctional import ControllerFunctionalObject
+from Coprocessor.Webpage.app import run_app
+from Coprocessor.usb import copy_to_usb
+
+MOUNT_DIR = "/mnt/usb_temp_mount"
 
 def name_valid_cams():
     try:
         device_list = [f"/dev/{device}" for device in os.listdir("/dev") if device.startswith("video")]
     except:
-        if TEST_MODE_FALLBACK:
-            return [[-1, "no-cameras-found"]]
+        return []
 
     if len(device_list) == 0:
         return []
@@ -67,6 +66,10 @@ def start_server_with_affinity(server, cpu_core):
 if __name__ == "__main__":
     try:
         cams_list = name_valid_cams()
+        while cams_list == []:
+            cams_list = name_valid_cams()
+            time.sleep(5)
+        
         print(f"Found {len(cams_list)} camera(s)")\
         
         servers = []
@@ -74,53 +77,28 @@ if __name__ == "__main__":
 
         host_data = {}
 
-        if cams_list[0][0] == -1 and TEST_MODE_FALLBACK:
-            host_data["Local-Image-Test-Mode"] = {"port": 50001, "cam_index": -1}
-            server = Server(-1, "Local-Image-Test-Mode", 50001)
+        
+        for i, (camera_index, sn) in enumerate(cams_list):
+            host_data[sn] = {"port": 50001 + i, "cam_index": camera_index}
+            server = Server(50001 + i, CameraFunctionalObject, camera_index, sn)
             servers.append(server)
-            processes.append(start_server_with_affinity(server, 0))
-        else:
-            for i, (camera_index, sn) in enumerate(cams_list):
-                host_data[sn] = {"port": 50001 + i, "cam_index": camera_index}
-                server = Server(camera_index, sn, 50001 + i)
-                servers.append(server)
-                processes.append(start_server_with_affinity(server, i % os.cpu_count()))
+            processes.append(start_server_with_affinity(server, i % os.cpu_count()))
 
+        host_data["Controllers"] = {"port": 49999, "host_name": "Controllers"}
+        server = Server(49999, ControllerFunctionalObject, 0, "Global",  host_data=host_data)
 
         host_data["Global"] = {"port": 50000, "host_name": "Global", "cam_index": -2}
-        server = Server(-2, "Global", 50000, host_data=host_data)
+        server = Server(50000, GlobalFunctionalObject, -2, "Global",  host_data=host_data)
         servers.append(server)
         processes.append(start_server_with_affinity(server, 0))
 
         usb_storage_devices = []
-        running_app = False
-        for device in os.listdir('/dev'):
-            if device.startswith('sd') and len(device) == 3:
-                device_path = os.path.join('/dev', device)
-                try:
-                    output = subprocess.check_output(
-                        f"udevadm info --name={device_path} | awk '/ID_BUS=usb/'", 
-                        shell=True
-                    )
-                    if output:
-                        running_app = True
-                        usb_storage_devices.append(device_path)
-                        coprocessor_output_dir = os.path.join(os.path.dirname(__file__), "output")
-                        mount_point = get_mount_point(device_path)
-                        if mount_point:
-                            usb_output_dir = os.path.join(mount_point, "Astrolabe", "output")
-                            if os.path.exists(coprocessor_output_dir):
-                                os.makedirs(usb_output_dir, exist_ok=True)
-                                for filename in os.listdir(coprocessor_output_dir):
-                                    src_file = os.path.join(coprocessor_output_dir, filename)
-                                    dst_file = os.path.join(usb_output_dir, filename)
-                                    if os.path.isfile(src_file):
-                                        shutil.copy2(src_file, dst_file)
-                except subprocess.CalledProcessError:
-                    continue
-        if running_app:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(base_dir, ".saves")
+        usb_found = copy_to_usb(data_path, "Astrolabe")
+        
+        if usb_found:
             run_app()
-
 
         for p in processes:
             p.join()

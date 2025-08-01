@@ -36,6 +36,7 @@ class LocalServer:
         self.current_camera_port = port
         self.fps_times = deque(maxlen=30)  # Store last 30 frame times for FPS calculation
         self.current_fps = 0
+        self.function_info = {}
         
         # Queue for sharing images between websocket thread and Flask
         self.image_queue = queue.Queue(maxsize=1)
@@ -110,6 +111,24 @@ class LocalServer:
             print(f"Websocket error: {e}")
             self.active_connection = None
             await asyncio.sleep(2)
+
+    async def get_function_info(self):
+        cache_key = f"{self.ip}:{self.port}"
+        if cache_key in self.function_info:
+            print("Using cached function info")
+            return self.function_info[cache_key]
+        
+        uri = f"ws://{self.ip}:{self.port}"
+        async with websockets.connect(uri) as websocket:
+            # Send your request here
+            await websocket.send(json.dumps({"function": "function_info"}))
+            
+            # Receive response
+            response = await websocket.recv()
+            
+            # Parse JSON response into dictionary
+            self.function_info[cache_key] = json.loads(response)
+            return self.function_info[cache_key]
 
     # Start the asyncio event loop in a separate thread
     def run_websocket_client(self):

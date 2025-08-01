@@ -1,0 +1,67 @@
+{
+  "add_color": {
+    "blue": "20",
+    "blur": "5",
+    "difference": "5",
+    "green": "20",
+    "red": "230"
+  },
+  "apriltag": {
+    "preprocessing_mode": "",
+    "preprocessor_parameters": "",
+    "quality": "",
+    "return_image": "True"
+  },
+  "hardware": {},
+  "hardware_info": {},
+  "info": {},
+  "piece": {
+    "quality": "",
+    "return_image": "True"
+  },
+  "raw": {
+    "quality": ""
+  },
+  "set_camera_params": {
+    "aperature": "",
+    "aperture": "-1.0",
+    "autoexposure": "3.0",
+    "autofocus": "-1.0",
+    "backlight": "1.0",
+    "brightness": "128.0",
+    "buffer_size": "4.0",
+    "contrast": "32.0",
+    "convert_rgb": "1.0",
+    "downscale_factor": "1",
+    "exposure": "305.0",
+    "focus": "-1.0",
+    "fps": "30.0",
+    "frame_height": "480.0",
+    "frame_width": "640.0",
+    "gain": "34.0",
+    "gamma": "-1.0",
+    "height": "30.0",
+    "horizontal_field_of_view_radians": "1.1868238913561442",
+    "horizontal_focal_length": "474.4195099240768",
+    "horizontal_resolution_pixels": "640",
+    "hue": "-1.0",
+    "iso_speed": "-1.0",
+    "position_frames": "-1.0",
+    "position_milliseconds": "29287322.99",
+    "record": "True",
+    "saturation": "32.0",
+    "sharpness": "224.0",
+    "temperature": "5433.0",
+    "tilt_angle_radians": "0.0",
+    "trigger": "-1.0",
+    "vertical_field_of_view_radians": "1.0",
+    "vertical_focal_length": "503.1704637811618",
+    "vertical_resolution_pixels": "480",
+    "white_balance_blue_u": "-1.0",
+    "white_balance_red_v": "-1.0",
+    "zoom": "-1.0"
+  },
+  "switch_color": {
+    "new_color": "1"
+  }
+}
