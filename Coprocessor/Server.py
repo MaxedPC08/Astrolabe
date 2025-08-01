@@ -1,33 +1,24 @@
 import asyncio
 import websockets
 import inspect
-from Functional import FunctionalObject
 import subprocess
 import constants
 import json
-
-"""
-Message format:
-
-{
-function:"
-parameters:{
-
-}
-}
-"""
+import os
 
 class Server:
-    def __init__(self, name, serial_number, port, host_data=None):
+    def __init__(self, port, functional, name, serial_number,  host_data=None):
         # Get the IP address of the Ethernet interface
-        self.functional_object = FunctionalObject(name, serial_number, host_data=host_data)
+        self.functional_object = functional(name, serial_number, host_data=host_data)
         self.port = port
         self.ethernet_ip = self.get_ethernet_ip()
         print(f"Ethernet IP address: {self.ethernet_ip}")
 
     def get_ethernet_ip(self):
         if constants.LOCAL_HOST:
-            with open("ip_address.txt", "w") as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".saves", "ip_address.txt")
+            with open(data_path, "w") as f:
                 f.write("Localhost")
                 f.write("\n")
                 f.write(subprocess.check_output("date", shell=True).decode().strip())
@@ -40,7 +31,9 @@ class Server:
             ip_address = subprocess.check_output(
                 f"ip -4 addr show {interface} | grep -oP '(?<=inet\s)\d+(\.\d+){3}'",
                 shell=True).decode().strip()
-            with open("ip_address.txt", "w") as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".saves", "ip_address.txt")
+            with open(data_path, "w") as f:
                 f.write(ip_address)
                 f.write("\n")
                 f.write(subprocess.check_output("date", shell=True).decode().strip())
@@ -81,7 +74,7 @@ class Server:
                     return
 
                 try:
-                    function_call = self.functional_object.functionDict[function_string]
+                    function_call = self.functional_object.function_dict[function_string]
                 except KeyError as e:
                     print(f"Error: Function {function_string} could not be found. Please check the docs for all available functions and their usages."
                           f"The full error is {e}")
@@ -89,6 +82,7 @@ class Server:
                     return
                 
                 try:
+                    message_json = {k: v for k, v in message_json.items() if v != ""}
                     await function_call(websocket, **message_json)
                 except Exception as e:
                     print(f"Error: an unexpected error occurred. {e}")
@@ -173,10 +167,10 @@ class Server:
                             raise e
 
                 try:
-                    if inspect.iscoroutinefunction(self.functional_object.functionDict[split_message[0]]):
-                        await self.functional_object.functionDict[split_message[0]](websocket, **args)
+                    if inspect.iscoroutinefunction(self.functional_object.function_dict[split_message[0]]):
+                        await self.functional_object.function_dict[split_message[0]](websocket, **args)
                     else:
-                        self.functional_object.functionDict[split_message[0]](**args)
+                        self.functional_object.function_dict[split_message[0]](**args)
 
                 except ValueError as e:
                     print(f"Error: {e}")

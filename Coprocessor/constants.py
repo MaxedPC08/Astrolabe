@@ -25,10 +25,10 @@ CAMERA_HEIGHT = defaults["camera_height"]  # This is the height of the camera in
 
 APRIL_TAG_WIDTH = defaults["april_tag_width"]  # This is the width of the AprilTag in meters
 APRIL_TAG_HEIGHT = defaults["april_tag_height"]  # This is the height of the AprilTag in meters
+RECORD = False
 
 IMAGE_FORMAT = "jpg"
 LOCAL_HOST = True
-TEST_MODE_FALLBACK = False
 
 HORIZONTAL_FOCAL_LENGTH = ((CAMERA_HORIZONTAL_RESOLUTION_PIXELS / 2) /
                            np.tan(CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS / 2))

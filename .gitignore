@@ -1,6 +1,7 @@
 ip_address.txt
 camera-params.json
 params.json
+.saves
 /RosWS
 
 # Byte-compiled / optimized / DLL files

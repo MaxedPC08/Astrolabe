@@ -1,6 +1,5 @@
 from flask import Flask, Response, render_template, request, jsonify
 import asyncio
-from Webpage.GlobalServer import GlobalServer
 from Webpage.LocalServer import LocalServer
 import os, json
 
@@ -84,19 +83,21 @@ def get_fps():
 
 @app.route('/get_function_info', methods=['POST'])
 def get_function_info():
-    print("Fetching function info from GlobalServer")
-    data = request.get_json()
-    ip = data.get('ip', default_ip)
-    port = int(data.get('port', 50000))  # GlobalServer is always at 50000
-    gs = GlobalServer(ip, 50000)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        info = loop.run_until_complete(gs.get_function_info())
-        return jsonify({"status": "success", "info": info})
-    except Exception as e:
-        print(f"Error fetching function info: {e}")
-        return jsonify({"status": "error", "message": str(e)})
+    print("Fetching function info from Server")
+    ip = active_camera["ip"]
+    port = active_camera["port"]
+    server_key = f"{ip}:{port}"
+
+    if server_key in camera_servers:
+        server = camera_servers[server_key]
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            info = loop.run_until_complete(server.get_function_info())
+            return jsonify({"status": "success", "info": info})
+        except Exception as e:
+            print(f"Error fetching function info: {e}")
+            return jsonify({"status": "error", "message": str(e)})
 
 @app.route('/set_repeat', methods=['POST'])
 def set_repeat():

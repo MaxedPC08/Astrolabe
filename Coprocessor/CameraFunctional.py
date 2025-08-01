@@ -1,7 +1,7 @@
 import base64
+from fileinput import filename
 import os
-import psutil
-import platform
+import time
 import cv2
 import numpy as np
 from Locater import Locater
@@ -11,7 +11,7 @@ from apriltag import Detector, DetectorOptions
 from constants import (APRIL_TAG_WIDTH, APRIL_TAG_HEIGHT,
                        HORIZONTAL_FOCAL_LENGTH, VERTICAL_FOCAL_LENGTH, CAMERA_HORIZONTAL_RESOLUTION_PIXELS,
                        CAMERA_VERTICAL_RESOLUTION_PIXELS, DOWNSCALE_FACTOR, CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS,
-                       CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT, cv2_props_dict)
+                       CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS, CAMERA_HEIGHT, RECORD, cv2_props_dict)
 
 """
 This file contains the FunctionalObject class which is used to create an object that can be used to interact with the
@@ -47,47 +47,28 @@ def encode_image_for_websocket(image_path, format="png"):
     # Convert to JSON string for sending
     return json.dumps(message)
 
-def get_raspberry_pi_performance():
-    """
-    This function gets the performance information of the Raspberry Pi such as temperature, CPU usage, memory usage,
-    disk usage, and system information.
-    :return: a dictionary containing the performance information
-    """
+def draw_image_to_record(image, text=None, color=None):
+    if not color:
+        color = (255, 255, 255)
+    height, width = image.shape[:2]
+    rect_height = int(height * 0.1)
+    # Make the image taller and add a colored rectangle above the original image without covering it
+    new_height = height + rect_height
+    new_image = np.zeros((new_height, width, 3), dtype=image.dtype)
+    # Fill the top rectangle with the color
+    new_image[0:rect_height, :, :] = color
+    # Copy the original image below the rectangle
+    new_image[rect_height:, :, :] = image
 
-    # Get temperature
-    temp_output = os.popen("vcgencmd measure_temp").readline()
-    temp_value = temp_output.replace("temp=", "").replace("'C\n", "")
-
-    # Get CPU usage
-    cpu_usage = psutil.cpu_percent(interval=1)
-
-    # Get memory usage
-    memory_info = psutil.virtual_memory()
-    memory_usage = memory_info.percent
-
-    # Get disk usage
-    disk_info = psutil.disk_usage('/')
-    disk_usage = disk_info.percent
-
-    # Get system information
-    system_info = platform.uname()
-
-    # Combine all information into a dictionary
-    performance_info = {
-        "temperature": float(temp_value),
-        "cpu_usage": cpu_usage,
-        "memory_usage": memory_usage,
-        "disk_usage": disk_usage,
-        "system": system_info.system,
-        "node_name": system_info.node,
-        "release": system_info.release,
-        "version": system_info.version,
-        "machine": system_info.machine,
-        "processor": system_info.processor
-        
-    }
-
-    return performance_info
+    if text:
+        font_scale = 1.0
+        thickness = 2
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
+        text_x = 10
+        text_y = rect_height // 2 + text_size[1] // 2
+        cv2.putText(new_image, text, (text_x, text_y), font, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+    return new_image
 
 
 # The following functions are used to convert the values received from the client to the correct data type. If the
@@ -104,21 +85,31 @@ def json_we(value, name):
     try:
         return json.loads(value)
     except json.decoder.JSONDecodeError as e:
-        raise ValueError(f'Error: Could not convert parameter -{name} with value "{value}" to a JSON object.') from e
+        raise ValueError(f'Error: Could not convert parameter "{name}" with value "{value}" to a JSON object.') from e
 
 
 def float_we(value, name):
     try:
         return float(value)
     except ValueError as e:
-        raise ValueError(f'Error: Could not convert parameter -{name} with value "{value}" to a float.') from e
+        raise ValueError(f'Error: Could not convert parameter "{name}" with value "{value}" to a float.') from e
 
 
 def int_we(value, name):
     try:
         return int(value)
     except ValueError as e:
-        raise ValueError(f'Error: Could not convert parameter -{name} with value "{value}" to an integer.') from e
+        raise ValueError(f'Error: Could not convert parameter "{name}" with value "{value}" to an integer.') from e
+    
+def bool_we(value, name):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in ['true', '1']:
+            return True
+        elif value.lower() in ['false', '0']:
+            return False
+    raise ValueError(f'Error: Could not convert parameter "{name}" with value "{value}" to a boolean.')
 
 
 def l3_preprocess(image, **kwargs):
@@ -171,7 +162,7 @@ def l1_preprocess(image, **kwargs):
     highlighted = cv2.bitwise_and(thresh, thresh, gray_image)
     return highlighted
 
-class FunctionalObject:
+class CameraFunctionalObject:
 
     """
     TODO: Implement new naming convention on all functions -----
@@ -184,7 +175,7 @@ class FunctionalObject:
     def __init__(self, name, serial_number, host_data=None):
         # This dictionary contains all the commands availible on the coprocessor. If you add a function, make sure to
         # add it to this dictionary.
-        self.functionDict = {
+        self.function_dict = {
             "raw": self.raw,
             "switch_color": self.switch_color,
             "save_color": self.save_color,
@@ -194,24 +185,18 @@ class FunctionalObject:
             "piece": self.piece,
             "apriltag": self.apriltag,
             "info": self.info,
-            "hardware_info": self.hardware_info,
+            "function_info": self.function_info,
         }
 
         self.name = name
-
-        if name == -2:
-            self.host_data = host_data
-            self.functionDict = {
-                "hardware_info": self.hardware_info,
-                "function_info": self.function_info,
-                "camera_info": self.camera_info
-            }
-            return
 
         options = DetectorOptions(refine_edges=False)
         self.detector = Detector(options=options)
         self.name = name
         self.serial_number = serial_number
+        self.previous_image = None
+        self.previous_image_information = None
+        self.previous_image_color = None
 
         temp_camera = cv2.VideoCapture(name)
         if temp_camera.isOpened():
@@ -228,7 +213,9 @@ class FunctionalObject:
         
         # load the camera data from the JSON file
         try:
-            with open('camera-params.json', 'r') as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "camera-params.json")
+            with open(data_path, 'r') as f:
                 camera_params = json.load(f)
             self.horizontal_focal_length = max(camera_params[serial_number]["horizontal_focal_length"], 0)
             self.vertical_focal_length = max(camera_params[serial_number]["vertical_focal_length"], 0)
@@ -239,6 +226,7 @@ class FunctionalObject:
             self.horizontal_field_of_view = max(camera_params[serial_number]["horizontal_field_of_view_radians"], 0)
             self.vertical_field_of_view = max(camera_params[serial_number]["vertical_field_of_view_radians"], 0)
             self.downscale_factor = max(camera_params[serial_number]["downscale_factor"], 1)
+            self.record = bool(camera_params[serial_number]["record"])
 
             for key in cv2_props_dict:
                 try:
@@ -258,10 +246,13 @@ class FunctionalObject:
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
             self.downscale_factor = DOWNSCALE_FACTOR
+            self.record = RECORD
 
             # Overwrite the parameters in the file with the defaults
-            with open('camera-params.json', 'r') as f:
-                camera_params = json.loads(f.read())
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "camera-params.json")
+            with open(data_path, 'r') as f:
+                camera_params = json.load(f)
             camera_params[serial_number] = {
                 "horizontal_focal_length": self.horizontal_focal_length,
                 "vertical_focal_length": self.vertical_focal_length,
@@ -271,11 +262,11 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "downscale_factor": self.downscale_factor
+                "downscale_factor": self.downscale_factor,
+                "record": self.record
             }
-            with open('camera-params.json', 'w') as f:
+            with open(data_path, 'w') as f:
                 json.dump(camera_params, f, indent=4)
-
 
         except:
             self.horizontal_focal_length = HORIZONTAL_FOCAL_LENGTH
@@ -287,6 +278,7 @@ class FunctionalObject:
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
             self.downscale_factor = DOWNSCALE_FACTOR
+            self.record = RECORD
             camera_params = {f"{serial_number}": {"horizontal_focal_length": self.horizontal_focal_length,
                                          "vertical_focal_length": self.vertical_focal_length,
                                          "camera_height": self.camera_height,
@@ -296,15 +288,36 @@ class FunctionalObject:
                                          "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                                          "vertical_field_of_view_radians": self.vertical_field_of_view,
                                          "downscale_factor": self.downscale_factor}}
-            with open('camera-params.json', 'w') as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "camera-params.json")
+            with open(data_path, 'w') as f:
                 json.dump(camera_params, f, indent=4)
-            
-            raise e
 
         self.locater = Locater(self.camera_horizontal_resolution_pixels,
                                self.camera_vertical_resolution_pixels,
                                self.tilt_angle_radians, self.camera_height,
-                               self.horizontal_field_of_view, self.vertical_field_of_view)        
+                               self.horizontal_field_of_view, self.vertical_field_of_view)
+        
+        if self.record:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # or 'XVID', 'MJPG', etc.
+            video_filename = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                ".saves",
+                f"{self.serial_number}", 
+                f"{time.strftime('%Y%m%d_%H-%M-%S')}.avi"
+            )
+            video_dir = os.path.dirname(video_filename)
+            os.makedirs(video_dir, exist_ok=True)
+
+            self.video_writer = cv2.VideoWriter(
+                video_filename,
+                fourcc,
+                20.0,  # FPS
+                (self.camera_horizontal_resolution_pixels, 
+                 self.camera_vertical_resolution_pixels + int(self.camera_vertical_resolution_pixels * 0.1))
+            )
+            if not self.video_writer.isOpened():
+                raise RuntimeError(f"Could not open video writer for {video_filename}. Check permissions or path.") 
     
     def get_image(self, rec_level=0):
         if self.name == -1:
@@ -314,8 +327,10 @@ class FunctionalObject:
         try:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         except:
-            print("Image likely empty. Please try again.")
-            if rec_level <= 5:
+            if rec_level <= 2:
+                self.camera.release()
+                time.sleep(2)
+                self.camera = cv2.VideoCapture(self.name)
                 return self.get_image(rec_level+1)
             return None, None
 
@@ -325,6 +340,20 @@ class FunctionalObject:
             return None, None
 
         return (ret, frame)
+    
+    def save_frame(self, frame, text, color):
+        """
+        Saves a frame to the video writer with a text overlay.
+        :param frame: The frame to save.
+        :param text: The text to overlay on the frame.
+        :param color: The color of the text overlay.
+        """
+        if self.record:
+            try:
+                frame_to_write = cv2.cvtColor(draw_image_to_record(frame, text=text, color=color), cv2.COLOR_RGB2BGR)
+                self.video_writer.write(frame_to_write)
+            except Exception as e:
+                print(f"Error writing to video file: {e}")
     
     
     async def report_no_cams(self, websocket):
@@ -354,6 +383,9 @@ class FunctionalObject:
         
         img = cv2.resize(img, (img.shape[1] // self.downscale_factor, img.shape[0] // self.downscale_factor))
         image_array = np.asarray(img)
+        if self.record:
+            self.save_frame(frame, text="Raw Image", color=(255, 255, 255))
+
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
         _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
     
@@ -496,8 +528,9 @@ class FunctionalObject:
             
             self.locater.color_list[self.locater.active_color] = color
 
-            # Save the color list to a JSON file
-            with open('params.json', 'w') as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "params.json")
+            with open(data_path, 'w') as f:
                 json.dump(self.locater.color_list, f, indent=4)
         except Exception as e:
             await websocket.send('{"error": ' + str(e) + '}')
@@ -512,12 +545,13 @@ class FunctionalObject:
         :return:
         """
         try:
+            print(red, green, blue)
             # Validate required keys and convert to int
-            red = int_we(red)
-            blue = int_we(blue)
-            green = int_we(green)
-            difference = int_we(difference)
-            blur = int_we(blur)
+            red = int_we(red, "red")
+            blue = int_we(blue, "blue")
+            green = int_we(green, "green")
+            difference = int_we(difference, "difference")
+            blur = int_we(blur, "blur")
 
             color = {
                 "red": red,
@@ -527,13 +561,18 @@ class FunctionalObject:
                 "blur": blur
             }
 
+            if len(self.locater.color_list) >=11:
+                await websocket.send('{"error": "Color list is full. Please delete a color before adding a new one."}')
+                return
             self.locater.color_list.append(color)
 
             # Save the color list to a JSON file
-            with open('params.json', 'w') as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "params.json")
+            with open(data_path, 'w') as f:
                 json.dump(self.locater.color_list, f, indent=4)
         except Exception as e:
-            await websocket.send('{"error": ' + str(e) + '}')
+            await websocket.send(json.dumps({"error":e}))
             return
         
         await self.info(websocket)
@@ -553,7 +592,9 @@ class FunctionalObject:
                 self.locater.active_color = min(self.locater.active_color, len(self.locater.color_list) - 1)
 
             # Save the color list to a JSON file
-            with open('params.json', 'w') as f:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(base_dir, ".cache", "params.json")
+            with open(data_path, 'w') as f:
                 json.dump(self.locater.color_list, f, indent=4)
         except Exception as e:
             await websocket.send('{"error": ' + str(e) + '}')
@@ -563,7 +604,6 @@ class FunctionalObject:
 
 
     async def set_camera_params(self, websocket, **kwargs):
-        print(kwargs)
         if isinstance(kwargs, dict):
             json_vals = kwargs
         else:
@@ -590,8 +630,10 @@ class FunctionalObject:
             "tilt_angle_radians": self.tilt_angle_radians,
             "horizontal_field_of_view_radians": self.horizontal_field_of_view,
             "vertical_field_of_view_radians": self.vertical_field_of_view,
-            "downscale_factor": self.downscale_factor
+            "downscale_factor": self.downscale_factor, 
+            "record": self.record
         }
+
         for key in values_dict.keys():
             try:
                 if json_vals[key] == '':
@@ -614,6 +656,30 @@ class FunctionalObject:
                                                "vertical_field_of_view_radians"), 1)
         self.downscale_factor = max(int_we(values_dict["downscale_factor"], "downscale_factor"), 1)
 
+        previous_record = self.record
+        self.record = bool_we(json_vals.get("record", RECORD), "record")
+
+        if not previous_record and self.record:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # or 'XVID', 'MJPG', etc.
+            video_filename = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                ".saves",
+                f"{self.serial_number}", 
+                f"{time.strftime('%Y%m%d_%H-%M-%S')}.avi"
+            )
+            video_dir = os.path.dirname(video_filename)
+            os.makedirs(video_dir, exist_ok=True)
+
+            self.video_writer = cv2.VideoWriter(
+                video_filename,
+                fourcc,
+                20.0,  # FPS
+                (self.camera_horizontal_resolution_pixels, 
+                 self.camera_vertical_resolution_pixels + int(self.camera_vertical_resolution_pixels * 0.1))
+            )
+            if not self.video_writer.isOpened():
+                raise RuntimeError(f"Could not open video writer for {video_filename}. Check permissions or path.") 
+
         new_params = {
                 "horizontal_focal_length": self.horizontal_focal_length,
                 "vertical_focal_length": self.vertical_focal_length,
@@ -623,7 +689,8 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "downscale_factor": self.downscale_factor
+                "downscale_factor": self.downscale_factor,
+                "record": self.record
             }
 
         for key in cv2_props_dict:
@@ -637,7 +704,9 @@ class FunctionalObject:
         
         
 
-        with open('camera-params.json', 'r') as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(base_dir, ".cache", "camera-params.json")
+        with open(data_path, 'r') as f:
             camera_params = json.loads(f.read())
 
         try:
@@ -653,9 +722,10 @@ class FunctionalObject:
             self.horizontal_field_of_view = CAMERA_HORIZONTAL_FIELD_OF_VIEW_RADIANS
             self.vertical_field_of_view = CAMERA_VERTICAL_FIELD_OF_VIEW_RADIANS
             self.downscale_factor = DOWNSCALE_FACTOR
+            self.record = RECORD
 
             # Overwrite the parameters in the file with the defaults
-            with open('camera-params.json', 'r') as f:
+            with open(data_path, 'r') as f:
                 camera_params = json.loads(f.read())
             camera_params[self.serial_number] = {
                 "horizontal_focal_length": self.horizontal_focal_length,
@@ -666,11 +736,17 @@ class FunctionalObject:
                 "tilt_angle_radians": self.tilt_angle_radians,
                 "horizontal_field_of_view_radians": self.horizontal_field_of_view,
                 "vertical_field_of_view_radians": self.vertical_field_of_view,
-                "downscale_factor": self.downscale_factor
+                "downscale_factor": self.downscale_factor,
+                "record": self.record
             }
             websocket.send("Camera name not found in camera-params.json or params are invalid. Using default values.")
-        with open('camera-params.json', 'w') as f:
+        with open(data_path, 'w') as f:
             json.dump(camera_params, f, indent=4)
+
+        self.locater = Locater(self.camera_horizontal_resolution_pixels,
+                               self.camera_vertical_resolution_pixels,
+                               self.tilt_angle_radians, self.camera_height,
+                               self.horizontal_field_of_view, self.vertical_field_of_view)
 
         await self.info(websocket)
 
@@ -689,17 +765,28 @@ class FunctionalObject:
             return
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         out_image = center = width = coefficient = jpg_string = None
-        if return_image:
+        if return_image or self.record:
             out_image, center, width, coefficient = self.locater.locate(
                 img)
             
-            out_image = cv2.resize(out_image, (out_image.shape[0] // self.downscale_factor, out_image.shape[1] // self.downscale_factor))
+            if return_image:
+                out_image = cv2.resize(out_image, (out_image.shape[1] // self.downscale_factor, out_image.shape[0] // self.downscale_factor))
 
-            image_array = np.asarray(out_image)
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
-            _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
-        
-            jpg_string = base64.b64encode(encoded_img).decode('utf-8')
+                image_array = np.asarray(out_image)
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(quality*100)]
+                _, encoded_img = cv2.imencode('.jpg', image_array, encode_param)
+            
+                jpg_string = base64.b64encode(encoded_img).decode('utf-8')
+            
+            if self.record:
+                center_percent = (center[0] / out_image.shape[1] * 100, center[1] / out_image.shape[0] * 100)
+                width_percent = width / out_image.shape[1] * 100
+
+                self.save_frame(out_image,
+                        text=f"Piece Detection. \nCenter: ({center_percent[0]:.1f}%, {center_percent[1]:.1f}%)\nWidth: {width_percent:.1f}%",
+                        color=((255, 128, 128) if width == -1 else (128, 255, 128))
+                    )
+
         else:
             _, center, width, coefficient = self.locater.locate_stripped(
                 img)
@@ -738,7 +825,8 @@ class FunctionalObject:
             "horizontal_field_of_view_radians": self.horizontal_field_of_view,
             "vertical_field_of_view_radians": self.vertical_field_of_view,
             "color_list": self.locater.color_list,
-            "active_color": self.locater.active_color
+            "active_color": self.locater.active_color,
+            "record": self.record
         }
 
         for key in cv2_props_dict:
@@ -748,10 +836,6 @@ class FunctionalObject:
                 pass
 
         await websocket.send(json.dumps(info_dict))
-    
-    async def hardware_info(self, websocket, *args, **kwargs):
-        hardware = get_raspberry_pi_performance()
-        await websocket.send(json.dumps(hardware))
 
     async def function_info(self, websocket, *args, **kwargs):
         info = {"description":"The command will return a lot of information about the current camera setup.",
@@ -832,51 +916,10 @@ class FunctionalObject:
                                      "description":"The index of the active color. This is the index of the color in the color "
                                      "list that the object detection model is currently looking for.",
                                      "guarantee":True},
+                        "record":{"type":"bool",
+                                  "description":"Whether the camera is currently recording.",
+                                  "guarantee":True}
                         
-                     }}
-        
-        hardware_info = {"description":"The command will return a lot of information about the current camera setup.",
-                     "arguments": {},
-                     "returns":
-                        {"temperature":{"type":"float",
-                                     "description":"Temperature of CPU",
-                                     "guarantee":True},
-
-                        "cpu_usage":{"type":"float",
-                                     "description":"The amount of the CPU being used.",
-                                     "guarantee":True},
-
-                        "memory_usage":{"type":"float",
-                                     "description":"The amount of memory being used.",
-                                     "guarantee":True},
-                        
-                        "disk_usage":{"type":"float",
-                                     "description":"The disk usage.",
-                                     "guarantee":True},
-                        
-                        "system":{"type":"string",
-                                     "description":"What OS the system is running.",
-                                     "guarantee":False},
-                        
-                        "node_name":{"type":"string",
-                                     "description":"Name of the node.",
-                                     "guarantee":False},
-
-                        "release":{"type":"string",
-                                     "description":"What release the OS is on at this point.",
-                                     "guarantee":False},
-                        
-                        "version":{"type":"string",
-                                     "description":"What version of the os currently running.",
-                                     "guarantee":False},
-                                     
-                        "machine":{"type":"string",
-                                     "description":"The architecture of the CPU.",
-                                     "guarantee":False},
-
-                        "processor":{"type":"float",
-                                     "description":"More detailed information about the CPU.",
-                                     "guarantee":True}
                      }}
         
         raw = {"description":"The raw command will return a the image as a stringified json image. This command will trigger the server to"
@@ -1042,8 +1085,12 @@ class FunctionalObject:
                                      "can see. This is used to calculate the distance to the object. It is measured in radians, "
                                      "not degrees!",
                                      "optional":True},
-                                     
-                        "aperature":{"type":"float",
+
+                        "record":{"type":"bool",
+                                  "description":"Whether the camera is currently recording. This is used to save the video stream to a file",
+                                  "optional":True},
+
+                        "aperture":{"type":"float",
                                      "description":"The aperture of the camera. This is the size of the opening in the lens that lets light in.",
                                      "optional":True},
 
@@ -1155,7 +1202,6 @@ class FunctionalObject:
         
         await websocket.send(json.dumps({
             "warning": warning,
-            "hardware": hardware_info,
             "raw": raw,
             "switch_color": switch_color,
             "save_color": save_color,
@@ -1167,12 +1213,12 @@ class FunctionalObject:
             "info": info,
         }))
 
-    async def camera_info(self, websocket, *args, **kwargs):
-        await websocket.send(json.dumps(self.host_data))
-
     def __del__(self):
         # Cleanup code
 
         if hasattr(self, 'camera') and self.camera.isOpened():
             self.camera.release()
+        if hasattr(self, 'video_writer') and self.video_writer is not None:
+            print("Releasing video writer.")
+            self.video_writer.release()
         del self
