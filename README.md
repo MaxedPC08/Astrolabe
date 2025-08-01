@@ -1,4 +1,6 @@
 # Astrolabe 
+Now with Reinforcement Learning Motion Control, meaning your robot will constantly improve its motion control skills as it drives around the field!
+
 For installation instructions, please see the [Installation](#installation) section below.
 
 ## Overview
