@@ -51,4 +51,4 @@ Install the required dependencies by running pip install -r requirements.txt in 
 
 ```wget -O - https://raw.githubusercontent.com/MaxedPC08/Astrolabe/master/Coprocessor/install.sh | sudo bash```
 
- From there, to run the app, simply insert a USB drive into the coprocessor, connect a camera, and connect to the ip address of the coprocessor! This is configured specifically for the default FRC VH109 Radio, so you will have the best luck with that.
+ From there, to run the app, simply insert a USB drive into the coprocessor, connect a camera, and connect to the ip address of the coprocessor (if you do not know the ip address of the coprocessor, turn the raspberry pi off after about a minute, remove the usb drive, navigate to the Astrolabe directory, and the ip address is in ip-address.txt)! This is configured specifically for the default FRC VH109 Radio, so you will have the best luck with that.
