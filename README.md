@@ -1,8 +1,8 @@
 # Astrolabe 
-Astrolabe 2 is out!!! For installation instructions, please see the [Installation](#installation) section below.
+For installation instructions, please see the [Installation](#installation) section below.
 
 ## Overview
-Astrolabe is a vision processing software designed specifically for FRC teams. Astrolabe has two ends, a server, usually the 
+Astrolabe is a vision processing and reinforcement learning motion control software designed specifically for FRC teams. Astrolabe has two ends, a server, usually the 
 coprocessor, and a client, usually the driver station or the robot, whichever is connected to the server. The server is 
 responsible for processing the image and sending the results to the client. The client is responsible for interacting 
 with the server in a UI. The server and client communicate over an ethernet connection. The server is started by 
@@ -16,6 +16,7 @@ string.
 * Full, color based object detection and location calculation.
 * AprilTag detection and location, pose, and direction calculation.
 * Websocket communication between the server and the client.
+* Reinforcement learning motion control algorithms that can be run on the coprocessor, constantly learning and improving the robot's motion control.
 
 ## Why Astrolabe?
 * Astrolabe is a vision processing software that is designed to be easy to use and easy to understand.
@@ -39,11 +40,10 @@ string.
   * The client can connect to any camera by specifying the camera's port number. This allows for easy switching between cameras, or even connecting to multiple cameras at once.
 * Astrolabe does not require a dedicated coprocessor.
   * We understand that teams may have a limited number of coprocessors, so we designed Astrolabe to be able to run in parallel with other software that may be running on the coprocessor. This allows teams to use Astrolabe without having to dedicate a coprocessor to it.
-* Astrolabe is easy to install and use.
-  * The server and client are both written in Python, so they can be run on any platform that supports Python. This includes Windows, Mac, and Linux.
-  * The client has a `requirements.txt` file that lists all of the dependencies that need to be installed. This makes it easy to install all of the required libraries with a single command.
-  * The server has a bash script that installs all of the required dependencies. This makes it easy to get the server up and running, even if you are not familiar with Python.
-  * The server has a `README.md` file that explains how to use the server. This makes it easy to get started with the server, even if you are not familiar with the code.
+* Astrolabe is easy to install and use. Just run the installation script on the coprocessor, and you are ready to go!
+  * The installation script will install all the necessary dependencies and set up the server to run automatically on boot.
+  * The client is a simple web interface that can be accessed from any device on the same network as the coprocessor. Just connect to the coprocessor's IP address and you are ready to go!
+
 
 ## Installation
 Installations for the coprocessor and the client are different. The instructions for the coprocessor are in the
