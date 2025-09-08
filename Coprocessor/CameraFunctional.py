@@ -205,7 +205,7 @@ class CameraFunctionalObject:
 
         # Open the camera and check if it works
         self.camera = cv2.VideoCapture(name)
-        # self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Set the codec to MJPG,
+        self.camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))  # Set the codec to MJPG,
         # as it is compatible with most cameras.
         cam_works, _ = self.get_image()
         if not cam_works:

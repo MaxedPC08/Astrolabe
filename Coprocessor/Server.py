@@ -192,13 +192,13 @@ class Server:
 
     def start_server(self):
         if not constants.LOCAL_HOST:
-            start_server = websockets.serve(self.websocket_server, self.ethernet_ip, self.port)
-            print(f"Server started at ws://{self.ethernet_ip}:{self.port} for {self.functional_object.name}")
+            start_server = websockets.serve(self.websocket_server, "0.0.0.0", self.port)
+            print(f"Server started at ws://0.0.0.0:{self.port} for {self.functional_object.name}")
             asyncio.get_event_loop().run_until_complete(start_server)
             asyncio.get_event_loop().run_forever()
         else:
             async def _start_server():
-                server = await websockets.serve(self.websocket_server, self.ethernet_ip, self.port)
+                server = await websockets.serve(self.websocket_server, "0.0.0.0", self.port)
                 await server.wait_closed()
             
             asyncio.run(_start_server())

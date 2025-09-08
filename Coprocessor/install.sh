@@ -21,7 +21,9 @@ sudo apt install -y python3-pip
 sudo apt-get install -y python3-opencv
 sudo apt-get install -y python3-numpy
 sudo apt-get install -y python3-pil
+sudo apt-get install -y python3-psutil
 sudo apt-get install -y python3-websockets
+sudo apt-get install -y python3-flask
 sudo apt-get install -y cmake
 
 # Clone the repository

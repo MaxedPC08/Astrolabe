@@ -55,6 +55,7 @@ class GlobalFunctionalObject:
                 "function_info": self.function_info,
                 "camera_info": self.camera_info
             }
+        self.name = name
         
     async def camera_info(self, websocket, *args, **kwargs):
         await websocket.send(json.dumps(self.host_data))
